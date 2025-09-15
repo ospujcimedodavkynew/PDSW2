@@ -1,109 +1,88 @@
-import React from 'react';
-import { Vehicle, Reservation } from '../types.ts';
-import { Car, CheckCircle, Clock } from 'lucide-react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import React, { useMemo } from 'react';
+import { Reservation, Vehicle } from '../types.ts';
+import { Car, Calendar, Clock, CheckCircle2 } from 'lucide-react';
 
-// Fix: Added props interface to accept data from App.tsx.
 interface DashboardProps {
-    vehicles: Vehicle[];
     reservations: Reservation[];
+    vehicles: Vehicle[];
     dataLoading: boolean;
+    onShowReservation: (reservation: Reservation) => void;
+    onNewReservation: () => void;
+    onNewCustomer: () => void;
+    onNewVehicle: () => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ vehicles, reservations, dataLoading }) => {
-    // Fix: Removed internal state and useEffect for data fetching. Data is now passed via props.
-    if (dataLoading) {
-        return <div className="text-center p-8">Načítám data...</div>;
-    }
+const StatCard: React.FC<{ icon: React.ElementType, title: string, value: string | number, color: string }> = ({ icon: Icon, title, value, color }) => (
+    <div className="bg-white p-6 rounded-lg shadow-md flex items-center">
+        <div className={`p-4 rounded-full ${color}`}>
+            <Icon className="w-8 h-8 text-white" />
+        </div>
+        <div className="ml-4">
+            <p className="text-sm text-gray-500 font-medium">{title}</p>
+            <p className="text-3xl font-bold text-gray-800">{value}</p>
+        </div>
+    </div>
+);
 
-    const availableVehicles = vehicles.filter(v => v.status === 'available').length;
-    const rentedVehicles = vehicles.filter(v => v.status === 'rented').length;
-    const maintenanceVehicles = vehicles.filter(v => v.status === 'maintenance').length;
+const Dashboard: React.FC<DashboardProps> = ({ reservations, vehicles, dataLoading, onShowReservation, onNewReservation, onNewCustomer, onNewVehicle }) => {
+    const stats = useMemo(() => {
+        const now = new Date();
+        const activeRentals = reservations.filter(r => r.status === 'active').length;
+        const availableVehicles = vehicles.filter(v => v.status === 'available').length;
+        const upcomingReservations = reservations.filter(r => r.status === 'scheduled' && new Date(r.start_date) > now).length;
+        return { activeRentals, availableVehicles, upcomingReservations, totalVehicles: vehicles.length };
+    }, [reservations, vehicles]);
+
+    const upcomingEvents = useMemo(() => {
+        return reservations
+            .filter(r => ['scheduled', 'active'].includes(r.status))
+            .sort((a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime())
+            .slice(0, 5);
+    }, [reservations]);
     
-    const fleetStatusData = [
-        { name: 'Dostupné', value: availableVehicles },
-        { name: 'Pronajaté', value: rentedVehicles },
-        { name: 'V servisu', value: maintenanceVehicles },
-    ];
-    const COLORS = ['#16A34A', '#F97316', '#64748B'];
-
-    const now = new Date();
-    const todayStart = new Date(now.setHours(0, 0, 0, 0));
-    const todayEnd = new Date(now.setHours(23, 59, 59, 999));
-
-    const todaysDepartures = reservations.filter(r => {
-        const startDate = new Date(r.start_date);
-        return startDate >= todayStart && startDate <= todayEnd && r.status === 'scheduled';
-    });
-
-    const activeReservations = reservations.filter(r => r.status === 'active');
+    if (dataLoading) {
+        return <div>Načítání přehledu...</div>;
+    }
 
     return (
         <div className="space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="bg-white p-6 rounded-lg shadow flex items-center">
-                    <Car className="w-10 h-10 text-primary mr-4" />
-                    <div>
-                        <h2 className="text-lg font-semibold text-gray-600">Celkem vozidel</h2>
-                        <p className="text-3xl font-bold text-primary mt-1">{vehicles.length}</p>
-                    </div>
-                </div>
-                <div className="bg-white p-6 rounded-lg shadow flex items-center">
-                    <CheckCircle className="w-10 h-10 text-green-600 mr-4" />
-                    <div>
-                        <h2 className="text-lg font-semibold text-gray-600">Dostupných</h2>
-                        <p className="text-3xl font-bold text-green-600 mt-1">{availableVehicles}</p>
-                    </div>
-                </div>
-                <div className="bg-white p-6 rounded-lg shadow flex items-center">
-                    <Clock className="w-10 h-10 text-orange-500 mr-4" />
-                    <div>
-                        <h2 className="text-lg font-semibold text-gray-600">Pronajatých</h2>
-                        <p className="text-3xl font-bold text-orange-500 mt-1">{rentedVehicles}</p>
-                    </div>
-                </div>
-                <div className="bg-white p-6 rounded-lg shadow flex items-center">
-                    <p className="text-3xl font-bold text-red-600 mt-2">{todaysDepartures.length}</p>
-                    <h2 className="text-lg font-semibold text-gray-600 ml-3">Dnešních odjezdů</h2>
-                </div>
+                <StatCard icon={Car} title="Aktivní pronájmy" value={stats.activeRentals} color="bg-orange-500" />
+                <StatCard icon={CheckCircle2} title="Dostupná vozidla" value={`${stats.availableVehicles} / ${stats.totalVehicles}`} color="bg-green-500" />
+                <StatCard icon={Calendar} title="Nadcházející rezervace" value={stats.upcomingReservations} color="bg-blue-500" />
+                <StatCard icon={Clock} title="Čeká na zákazníka" value={reservations.filter(r => r.status === 'pending-customer').length} color="bg-yellow-500" />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-1 bg-white p-6 rounded-lg shadow">
-                    <h2 className="text-xl font-bold mb-4 text-center">Stav flotily</h2>
-                    <ResponsiveContainer width="100%" height={250}>
-                        <PieChart>
-                            <Pie data={fleetStatusData} cx="50%" cy="50%" labelLine={false} outerRadius={100} fill="#8884d8" dataKey="value" nameKey="name" label={(entry) => `${entry.name}: ${entry.value}`}>
-                                {fleetStatusData.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                ))}
-                            </Pie>
-                            <Tooltip />
-                        </PieChart>
-                    </ResponsiveContainer>
-                </div>
-                <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow">
-                     <h2 className="text-xl font-bold mb-4">Probíhající pronájmy</h2>
-                     <div className="overflow-y-auto h-64">
-                        {activeReservations.length > 0 ? (
-                             <ul className="space-y-3">
-                                {activeReservations.map(res => (
-                                    <li key={res.id} className="p-3 bg-gray-50 rounded-md flex justify-between items-center">
-                                        <div>
-                                            <p className="font-semibold">{res.vehicles?.name} ({res.vehicles?.license_plate})</p>
-                                            <p className="text-sm text-gray-600">{res.customers?.first_name} {res.customers?.last_name}</p>
-                                        </div>
-                                        <div className="text-right">
-                                            <p className="text-sm">Návrat:</p>
-                                            <p className="font-medium">{new Date(res.end_date).toLocaleDateString('cs-CZ')}</p>
-                                        </div>
-                                    </li>
-                                ))}
-                            </ul>
+                <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow-md">
+                    <h2 className="text-xl font-bold mb-4 text-gray-700">Nadcházející události</h2>
+                    <div className="space-y-3">
+                        {upcomingEvents.length > 0 ? (
+                            upcomingEvents.map(r => (
+                                <div key={r.id} onClick={() => onShowReservation(r)} className="p-3 bg-gray-50 hover:bg-gray-100 rounded-lg flex justify-between items-center cursor-pointer">
+                                    <div>
+                                        <p className="font-semibold">{r.vehicles?.name}</p>
+                                        <p className="text-sm text-gray-600">{r.customers?.first_name} {r.customers?.last_name}</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className={`font-bold text-sm ${r.status === 'active' ? 'text-orange-600' : 'text-blue-600'}`}>{new Date(r.start_date).toLocaleDateString('cs-CZ')} - {new Date(r.end_date).toLocaleDateString('cs-CZ')}</p>
+                                        <p className="text-xs text-gray-500">{new Date(r.start_date).toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit'})} &rarr; {new Date(r.end_date).toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' })}</p>
+                                    </div>
+                                </div>
+                            ))
                         ) : (
-                            <p className="text-gray-500 pt-10 text-center">Aktuálně nejsou žádné probíhající pronájmy.</p>
+                            <p className="text-gray-500">Žádné nadcházející události.</p>
                         )}
-                     </div>
+                    </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-lg shadow-md">
+                    <h2 className="text-xl font-bold mb-4 text-gray-700">Rychlé akce</h2>
+                    <div className="space-y-3">
+                        <button onClick={() => onNewReservation()} className="w-full text-left p-3 bg-primary text-white rounded-lg hover:bg-primary-hover font-semibold">Nová rezervace</button>
+                        <button onClick={onNewVehicle} className="w-full text-left p-3 bg-gray-200 rounded-lg hover:bg-gray-300 font-semibold">Přidat vozidlo</button>
+                        <button onClick={onNewCustomer} className="w-full text-left p-3 bg-gray-200 rounded-lg hover:bg-gray-300 font-semibold">Přidat zákazníka</button>
+                    </div>
                 </div>
             </div>
         </div>
