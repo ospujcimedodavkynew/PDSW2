@@ -1,25 +1,23 @@
-// Defines the available pages for navigation
+// Fix: Replaced API logic with actual type definitions. This file should only contain types.
 export enum Page {
-    DASHBOARD = 'dashboard',
-    RESERVATIONS = 'reservations',
-    VEHICLES = 'vehicles',
-    CUSTOMERS = 'customers',
-    CONTRACTS = 'contracts',
-    FINANCIALS = 'financials',
-    REPORTS = 'reports',
+    DASHBOARD = 'DASHBOARD',
+    RESERVATIONS = 'RESERVATIONS',
+    VEHICLES = 'VEHICLES',
+    CUSTOMERS = 'CUSTOMERS',
+    CONTRACTS = 'CONTRACTS',
+    FINANCIALS = 'FINANCIALS',
+    REPORTS = 'REPORTS',
 }
 
-// Represents a notification in the system
 export interface Notification {
-    id: string; // Unique ID, e.g., 'res-update-123' or 'end-alert-456'
+    id: string;
     message: string;
     type: 'info' | 'warning';
     createdAt: Date;
     isRead: boolean;
-    page?: Page; // Optional page to navigate to on click
+    page?: Page;
 }
 
-// Represents a vehicle in the fleet
 export interface Vehicle {
     id: string;
     name: string;
@@ -36,64 +34,59 @@ export interface Vehicle {
     currentMileage: number;
 }
 
-// Represents a customer
 export interface Customer {
     id: string;
-    firstName: string;
-    lastName: string;
+    first_name: string;
+    last_name: string;
     email: string;
     phone: string;
-    driver_license_number: string;
     address: string;
+    driver_license_number: string;
     driverLicenseImageUrl?: string;
 }
 
-// Represents a reservation
 export interface Reservation {
     id: string;
     customerId: string;
     vehicleId: string;
     startDate: Date;
     endDate: Date;
-    status: 'pending-customer' | 'scheduled' | 'active' | 'completed';
-    portalToken?: string;
-    notes?: string;
+    status: 'scheduled' | 'active' | 'completed' | 'pending-customer';
     customer?: Customer;
     vehicle?: Vehicle;
+    portalToken?: string;
     startMileage?: number;
     endMileage?: number;
+    notes?: string;
 }
 
-// Represents a contract
 export interface Contract {
     id: string;
     reservationId: string;
     customerId: string;
     vehicleId: string;
-    generatedAt: Date;
     contractText: string;
-    customer: Customer;
-    vehicle: Vehicle;
+    generatedAt: Date;
+    customer?: Customer;
+    vehicle?: Vehicle;
 }
 
-// Expense categories for financial tracking
-export const EXPENSE_CATEGORIES = {
-    servis: 'Servis a údržba',
+export type ExpenseCategory = 'palivo' | 'udrzba' | 'pojisteni' | 'marketing' | 'ostatni';
+
+export const EXPENSE_CATEGORIES: { [key in ExpenseCategory]: string } = {
+    palivo: 'Palivo',
+    udrzba: 'Údržba a servis',
     pojisteni: 'Pojištění',
-    pohonne_hmoty: 'Pohonné hmoty',
     marketing: 'Marketing',
     ostatni: 'Ostatní',
 };
-export type ExpenseCategory = keyof typeof EXPENSE_CATEGORIES;
 
-
-// Represents a financial transaction
 export interface FinancialTransaction {
     id: string;
     reservationId?: string;
+    description: string;
     amount: number;
     date: Date;
-    description: string;
     type: 'income' | 'expense';
     category?: ExpenseCategory;
 }

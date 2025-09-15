@@ -78,7 +78,7 @@ const Reports: React.FC = () => {
             .map(([customerId, total]) => {
                 const customer = customers.find(c => c.id === customerId);
                 return {
-                    name: customer ? `${customer.firstName} ${customer.lastName}` : 'Neznámý zákazník',
+                    name: customer ? `${customer.first_name} ${customer.last_name}` : 'Neznámý zákazník',
                     total: total
                 };
             })

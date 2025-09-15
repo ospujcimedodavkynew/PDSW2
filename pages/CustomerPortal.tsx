@@ -10,7 +10,7 @@ interface CustomerPortalProps {
 const CustomerPortal: React.FC<CustomerPortalProps> = ({ token }) => {
     const [reservation, setReservation] = useState<Reservation | null>(null);
     const [formData, setFormData] = useState<Omit<Customer, 'id' | 'driverLicenseImageUrl'>>({
-        firstName: '', lastName: '', email: '', phone: '', driver_license_number: '', address: ''
+        first_name: '', last_name: '', email: '', phone: '', driver_license_number: '', address: ''
     });
     const [driverLicenseFile, setDriverLicenseFile] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -106,8 +106,8 @@ const CustomerPortal: React.FC<CustomerPortalProps> = ({ token }) => {
                 <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-xl p-8 space-y-6">
                     <h2 className="text-xl font-semibold text-gray-800 border-b pb-3">Vaše údaje</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                         <input type="text" placeholder="Jméno" value={formData.firstName} onChange={e => setFormData({ ...formData, firstName: e.target.value })} className="w-full p-3 border rounded-md" required />
-                         <input type="text" placeholder="Příjmení" value={formData.lastName} onChange={e => setFormData({ ...formData, lastName: e.target.value })} className="w-full p-3 border rounded-md" required />
+                         <input type="text" placeholder="Jméno" value={formData.first_name} onChange={e => setFormData({ ...formData, first_name: e.target.value })} className="w-full p-3 border rounded-md" required />
+                         <input type="text" placeholder="Příjmení" value={formData.last_name} onChange={e => setFormData({ ...formData, last_name: e.target.value })} className="w-full p-3 border rounded-md" required />
                     </div>
                      <input type="email" placeholder="Email" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} className="w-full p-3 border rounded-md" required />
                      <input type="text" placeholder="Adresa (Ulice, ČP, Město, PSČ)" value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} className="w-full p-3 border rounded-md" required />

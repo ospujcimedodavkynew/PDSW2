@@ -28,7 +28,7 @@ IČO: 12345678
 Adresa: Vzorová 1, 110 00 Praha 1
 
 NÁJEMCE:
-Jméno: ${customer.firstName} ${customer.lastName}
+Jméno: ${customer.first_name} ${customer.last_name}
 Adresa: ${customer.address}
 Email: ${customer.email}
 Telefon: ${customer.phone}
@@ -237,7 +237,7 @@ const ReservationFormModal: React.FC<ReservationFormModalProps> = ({ isOpen, onC
                                     <label className="block text-sm font-medium text-gray-700">Zákazník</label>
                                     <select value={customerId} onChange={e => setCustomerId(e.target.value)} className="w-full p-2 border rounded-md" required>
                                         <option value="">-- Vyberte zákazníka --</option>
-                                        {customers.map(c => <option key={c.id} value={c.id}>{c.firstName} {c.lastName}</option>)}
+                                        {customers.map(c => <option key={c.id} value={c.id}>{c.first_name} {c.last_name}</option>)}
                                     </select>
                                 </div>
                                 <div>

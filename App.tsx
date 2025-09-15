@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
@@ -132,7 +131,7 @@ function App() {
             if (updatedRes && updatedRes.customer && updatedRes.vehicle) {
                 const newNotification: Notification = {
                     id: `res-update-${updatedRes.id}`,
-                    message: `Zákazník ${updatedRes.customer.firstName} ${updatedRes.customer.lastName} dokončil rezervaci vozidla ${updatedRes.vehicle.name}.`,
+                    message: `Zákazník ${updatedRes.customer.first_name} ${updatedRes.customer.last_name} dokončil rezervaci vozidla ${updatedRes.vehicle.name}.`,
                     type: 'info',
                     createdAt: new Date(),
                     isRead: false,

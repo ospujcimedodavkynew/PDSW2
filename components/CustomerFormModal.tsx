@@ -12,7 +12,7 @@ interface CustomerFormModalProps {
 
 const CustomerFormModal: React.FC<CustomerFormModalProps> = ({ isOpen, onClose, onSaveSuccess, customer }) => {
     const getInitialData = (c: Partial<Customer> | null): Partial<Customer> => c || {
-        firstName: '', lastName: '', email: '', phone: '', driver_license_number: '', address: ''
+        first_name: '', last_name: '', email: '', phone: '', driver_license_number: '', address: ''
     };
 
     const [formData, setFormData] = useState<Partial<Customer>>(getInitialData(customer));
@@ -56,8 +56,8 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = ({ isOpen, onClose, 
                 </div>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
-                        <input type="text" placeholder="Jméno" value={formData.firstName || ''} onChange={e => setFormData({ ...formData, firstName: e.target.value })} className="w-full p-2 border rounded" required />
-                        <input type="text" placeholder="Příjmení" value={formData.lastName || ''} onChange={e => setFormData({ ...formData, lastName: e.target.value })} className="w-full p-2 border rounded" required />
+                        <input type="text" placeholder="Jméno" value={formData.first_name || ''} onChange={e => setFormData({ ...formData, first_name: e.target.value })} className="w-full p-2 border rounded" required />
+                        <input type="text" placeholder="Příjmení" value={formData.last_name || ''} onChange={e => setFormData({ ...formData, last_name: e.target.value })} className="w-full p-2 border rounded" required />
                     </div>
                     <input type="email" placeholder="Email" value={formData.email || ''} onChange={e => setFormData({ ...formData, email: e.target.value })} className="w-full p-2 border rounded" required />
                     <input type="text" placeholder="Adresa" value={formData.address || ''} onChange={e => setFormData({ ...formData, address: e.target.value })} className="w-full p-2 border rounded" required />

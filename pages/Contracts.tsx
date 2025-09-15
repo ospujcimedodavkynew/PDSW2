@@ -29,7 +29,7 @@ const Contracts: React.FC = () => {
 
     const filteredContracts = useMemo(() => {
         return contracts.filter(contract => {
-            const customerName = `${contract.customer?.firstName} ${contract.customer?.lastName}`.toLowerCase();
+            const customerName = `${contract.customer?.first_name} ${contract.customer?.last_name}`.toLowerCase();
             const vehicleName = contract.vehicle?.name.toLowerCase() || '';
             const licensePlate = contract.vehicle?.licensePlate.toLowerCase() || '';
             const term = searchTerm.toLowerCase();
@@ -72,7 +72,7 @@ const Contracts: React.FC = () => {
                     {selectedContract.customer && (
                         <div className="bg-gray-50 p-4 rounded-md">
                             <h3 className="font-bold text-lg mb-2">Nájemce</h3>
-                            <p>{selectedContract.customer.firstName} {selectedContract.customer.lastName}</p>
+                            <p>{selectedContract.customer.first_name} {selectedContract.customer.last_name}</p>
                             <p>{selectedContract.customer.email}</p>
                             <p>{selectedContract.customer.phone}</p>
                         </div>
@@ -133,7 +133,7 @@ const Contracts: React.FC = () => {
                             paginatedContracts.map(contract => (
                                 <tr key={contract.id} className="hover:bg-gray-50">
                                     <td className="px-5 py-4 text-sm text-gray-500 font-mono">{contract.id.substring(0, 8)}...</td>
-                                    <td className="px-5 py-4">{contract.customer?.firstName} {contract.customer?.lastName}</td>
+                                    <td className="px-5 py-4">{contract.customer?.first_name} {contract.customer?.last_name}</td>
                                     <td className="px-5 py-4">{contract.vehicle?.name}</td>
                                     <td className="px-5 py-4">{new Date(contract.generatedAt).toLocaleDateString('cs-CZ')}</td>
                                     <td className="px-5 py-4">

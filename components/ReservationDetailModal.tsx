@@ -130,7 +130,7 @@ Poplatek za překročení: ${extraCharge.toLocaleString('cs-CZ')} Kč
                 <div className="space-y-4">
                     <div>
                         <h3 className="font-semibold text-gray-500">Zákazník</h3>
-                        <p className="text-lg">{reservation.customer.firstName} {reservation.customer.lastName}</p>
+                        <p className="text-lg">{reservation.customer.first_name} {reservation.customer.last_name}</p>
                          {reservation.customer.driverLicenseImageUrl && (
                              <a href={reservation.customer.driverLicenseImageUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline flex items-center mt-1">
                                 <FileText className="w-4 h-4 mr-1"/> Zobrazit řidičský průkaz

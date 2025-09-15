@@ -89,7 +89,8 @@ export const updateVehicle = async (vehicle: Partial<Vehicle> & { id: string }):
 // --- Customers API ---
 
 export const getCustomers = async (): Promise<Customer[]> => {
-    const { data, error } = await getClient().from('customers').select('*').order('lastName', { ascending: true });
+    // Fix: Changed 'lastName' to 'last_name' to match database schema.
+    const { data, error } = await getClient().from('customers').select('*').order('last_name', { ascending: true });
     handleSupabaseError(error, 'getCustomers');
     return data || [];
 };

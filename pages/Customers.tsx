@@ -13,7 +13,7 @@ const CustomerCard: React.FC<{ customer: Customer; onEdit: (customer: Customer) 
                         <User className="w-6 h-6 text-primary" />
                     </div>
                     <div>
-                        <h3 className="text-lg font-bold text-gray-800">{customer.firstName} {customer.lastName}</h3>
+                        <h3 className="text-lg font-bold text-gray-800">{customer.first_name} {customer.last_name}</h3>
                     </div>
                 </div>
                 <div className="space-y-2 text-sm">
@@ -56,7 +56,7 @@ const Customers: React.FC = () => {
     
     const filteredCustomers = useMemo(() => {
         return customers.filter(customer => {
-            const fullName = `${customer.firstName} ${customer.lastName}`;
+            const fullName = `${customer.first_name} ${customer.last_name}`;
             const term = searchTerm.toLowerCase();
             return term === '' ||
                 fullName.toLowerCase().includes(term) ||

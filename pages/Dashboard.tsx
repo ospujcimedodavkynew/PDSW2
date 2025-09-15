@@ -168,7 +168,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage, onNewReservation 
                            {todaysActivities.map(res => (
                                <li key={res.id} className={`flex justify-between items-center p-3 rounded-md ${res.type === 'departure' ? 'bg-green-50' : 'bg-yellow-50'}`}>
                                  <div>
-                                    <p className="font-semibold">{res.customer?.firstName} {res.customer?.lastName}</p>
+                                    <p className="font-semibold">{res.customer?.first_name} {res.customer?.last_name}</p>
                                     <p className="text-sm text-gray-500">{res.vehicle?.name} - <Clock className="inline w-3 h-3 mr-1"/>{res.time.toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' })}</p>
                                  </div>
                                  {res.type === 'departure' ? (
@@ -203,7 +203,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage, onNewReservation 
                            {activeRentals.map(res => (
                                <li key={res.id} className="flex justify-between items-center p-3 rounded-md bg-blue-50">
                                  <div>
-                                    <p className="font-semibold">{res.customer?.firstName} {res.customer?.lastName}</p>
+                                    <p className="font-semibold">{res.customer?.first_name} {res.customer?.last_name}</p>
                                     <p className="text-sm text-gray-500">
                                         {res.vehicle?.name} | Plánovaný návrat: {new Date(res.endDate).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric' })} v {new Date(res.endDate).toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' })}
                                     </p>

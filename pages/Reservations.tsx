@@ -159,7 +159,7 @@ const Reservations: React.FC<ReservationsProps> = ({ onNewReservation, onEditRes
                                                 transform: 'translateY(4px)'
                                             }}
                                         >
-                                           {r.customer ? `${r.customer.firstName} ${r.customer.lastName}` : 'Čeká na zákazníka'}
+                                           {r.customer ? `${r.customer.first_name} ${r.customer.last_name}` : 'Čeká na zákazníka'}
                                         </div>
                                     );
                                 })
