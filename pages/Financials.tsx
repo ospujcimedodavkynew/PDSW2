@@ -1,6 +1,8 @@
+
 import React, { useEffect, useState, useMemo, FormEvent } from 'react';
-import { getFinancials, addExpense } from '../services/api';
-import { FinancialTransaction, ExpenseCategory, EXPENSE_CATEGORIES } from '../types';
+// Fix: Added .ts extension to the import paths.
+import { getFinancials, addExpense } from '../services/api.ts';
+import { FinancialTransaction, ExpenseCategory, EXPENSE_CATEGORIES } from '../types.ts';
 import { DollarSign, TrendingUp, TrendingDown, Plus, X } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
@@ -29,7 +31,8 @@ const ExpenseFormModal: React.FC<{
             await addExpense({
                 description,
                 amount: parseFloat(amount),
-                date: new Date(date),
+                // Fix: The 'date' property is expected to be a string, not a Date object.
+                date: date,
                 category,
             });
             onSave();

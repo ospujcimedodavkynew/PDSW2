@@ -1,169 +1,96 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { getVehicles, getReservations, onTableChange } from '../services/api';
-import type { Reservation, Vehicle } from '../types';
-import { ChevronLeft, ChevronRight, Plus, Loader } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Vehicle, Reservation, ReservationStatus } from '../types.ts';
+import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 
-interface ReservationsProps {
-    onNewReservation: (data: Partial<Reservation> & { initialDate?: Date }) => void;
-    onEditReservation: (reservation: Reservation) => void;
+interface ReservationsPageProps {
+    vehicles: Vehicle[];
+    reservations: Reservation[];
+    dataLoading: boolean;
+    onNewReservation: (prefillData: Partial<Reservation>) => void;
+    onShowDetail: (reservation: Reservation) => void;
 }
 
-const Reservations: React.FC<ReservationsProps> = ({ onNewReservation, onEditReservation }) => {
-    const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-    const [reservations, setReservations] = useState<Reservation[]>([]);
-    const [loading, setLoading] = useState(true);
+const statusColors: Record<ReservationStatus, string> = {
+    'pending-customer': 'bg-yellow-200 border-yellow-400',
+    scheduled: 'bg-blue-200 border-blue-400',
+    active: 'bg-orange-300 border-orange-500',
+    completed: 'bg-green-200 border-green-400',
+    cancelled: 'bg-gray-200 border-gray-400 line-through',
+};
+
+const ReservationsPage: React.FC<ReservationsPageProps> = ({ vehicles, reservations, dataLoading, onNewReservation, onShowDetail }) => {
     const [currentDate, setCurrentDate] = useState(new Date());
-    const [lastUpdate, setLastUpdate] = useState(Date.now());
 
-    const fetchData = useCallback(async () => {
-        setLoading(true);
-        try {
-            const [vehData, resData] = await Promise.all([
-                getVehicles(),
-                getReservations(),
-            ]);
-            setVehicles(vehData);
-            setReservations(resData);
-        } catch (error) {
-            console.error("Failed to fetch calendar data:", error);
-        } finally {
-            setLoading(false);
-        }
-    }, []);
-    
-    useEffect(() => {
-        fetchData();
-    }, [fetchData, lastUpdate]);
+    const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+    const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+    const daysInMonth = endOfMonth.getDate();
 
-    useEffect(() => {
-        const reservationSub = onTableChange('reservations', () => {
-             console.log('Reservation change detected, refetching calendar data...');
-             setLastUpdate(Date.now());
+    const days = Array.from({ length: daysInMonth }, (_, i) => new Date(startOfMonth.getFullYear(), startOfMonth.getMonth(), i + 1));
+
+    const vehicleReservations = useMemo(() => {
+        const map = new Map<string, Reservation[]>();
+        reservations.forEach(res => {
+            const list = map.get(res.vehicle_id) || [];
+            list.push(res);
+            map.set(res.vehicle_id, list);
         });
+        return map;
+    }, [reservations]);
 
-        return () => {
-            reservationSub.unsubscribe();
-        }
-    }, []);
-
-    const { year, month, daysInMonth, firstDayOfMonth } = useMemo(() => {
-        const year = currentDate.getFullYear();
-        const month = currentDate.getMonth();
-        const daysInMonth = new Date(year, month + 1, 0).getDate();
-        const firstDayOfMonth = new Date(year, month, 1).getDay();
-        return { year, month, daysInMonth, firstDayOfMonth: (firstDayOfMonth === 0 ? 6 : firstDayOfMonth -1) };
-    }, [currentDate]);
-
-    const handlePrevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
-    const handleNextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
+    const getReservationForDay = (vehicleId: string, day: Date): Reservation | undefined => {
+        const dayStart = day.getTime();
+        const dayEnd = new Date(day).setHours(23, 59, 59, 999);
+        return vehicleReservations.get(vehicleId)?.find(res => {
+            const resStart = new Date(res.start_date).getTime();
+            const resEnd = new Date(res.end_date).getTime();
+            return (dayStart >= resStart && dayStart <= resEnd) || (dayEnd >= resStart && dayEnd <= resEnd) || (resStart >= dayStart && resEnd <= dayEnd);
+        });
+    };
     
-    const openModalForNew = (vehicleId: string, date?: number) => {
-        const initialDate = date != null ? new Date(year, month, date) : new Date();
-        onNewReservation({ vehicleId, initialDate });
+    const changeMonth = (offset: number) => {
+        setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth() + offset, 1));
     };
 
-    const statusColors: { [key in Reservation['status']]: string } = {
-        'scheduled': 'bg-blue-500 border-blue-700',
-        'active': 'bg-yellow-500 border-yellow-700',
-        'completed': 'bg-green-500 border-green-700',
-        'pending-customer': 'bg-gray-400 border-gray-600',
-    };
-
-    if (loading) {
-        return <div className="flex items-center justify-center h-full"><Loader className="w-8 h-8 animate-spin" /> Načítání kalendáře...</div>;
-    }
+    if (dataLoading) return <div>Načítání kalendáře...</div>;
 
     return (
-        <div className="flex flex-col h-full">
-            {/* Header */}
+        <div className="bg-white p-6 rounded-lg shadow-md h-full flex flex-col">
             <div className="flex justify-between items-center mb-4">
-                <div className="flex items-center bg-white shadow-sm rounded-lg p-1">
-                    <button onClick={handlePrevMonth} className="p-2 rounded-md hover:bg-gray-100"><ChevronLeft /></button>
-                    <span className="w-48 text-center font-bold text-lg">
-                        {new Date(year, month).toLocaleString('cs-CZ', { month: 'long', year: 'numeric' })}
-                    </span>
-                    <button onClick={handleNextMonth} className="p-2 rounded-md hover:bg-gray-100"><ChevronRight /></button>
+                <div className="flex items-center space-x-4">
+                    <button onClick={() => changeMonth(-1)} className="p-2 rounded-full hover:bg-gray-100"><ChevronLeft /></button>
+                    <h2 className="text-xl font-bold w-48 text-center">{currentDate.toLocaleString('cs-CZ', { month: 'long', year: 'numeric' })}</h2>
+                    <button onClick={() => changeMonth(1)} className="p-2 rounded-full hover:bg-gray-100"><ChevronRight /></button>
                 </div>
-                <button onClick={() => onNewReservation({})} className="bg-secondary text-dark-text font-bold py-2 px-4 rounded-lg hover:bg-secondary-hover transition-colors flex items-center">
-                    <Plus className="w-5 h-5 mr-2" />
-                    Nová rezervace
+                <button onClick={() => onNewReservation({start_date: new Date().toISOString()})} className="bg-primary text-white font-bold py-2 px-4 rounded-lg hover:bg-primary-hover flex items-center">
+                    <Plus className="w-5 h-5 mr-2" /> Nová rezervace
                 </button>
             </div>
+            <div className="flex-1 overflow-auto">
+                <div className="grid" style={{ gridTemplateColumns: `150px repeat(${daysInMonth}, minmax(40px, 1fr))` }}>
+                    <div className="sticky left-0 bg-white z-10 border-r border-b font-bold p-2">Vozidlo</div>
+                    {days.map(day => (
+                        <div key={day.toISOString()} className={`text-center p-2 border-b ${day.getDay() === 0 || day.getDay() === 6 ? 'bg-gray-50' : ''}`}>
+                            <span className="text-xs">{day.toLocaleString('cs-CZ', { weekday: 'short' })}</span><br />
+                            <span className="font-bold">{day.getDate()}</span>
+                        </div>
+                    ))}
 
-            {/* Calendar */}
-            <div className="flex-grow bg-white p-4 rounded-lg shadow-md overflow-auto">
-                <div className="grid gap-px" style={{ gridTemplateColumns: `180px repeat(${daysInMonth}, minmax(40px, 1fr))` }}>
-                    {/* Header: Vehicle Name */}
-                    <div className="sticky top-0 left-0 z-20 bg-gray-100 p-2 font-semibold border-b border-r">Vozidlo</div>
-                    {/* Header: Days */}
-                    {Array.from({ length: daysInMonth }, (_, i) => {
-                         const day = i + 1;
-                         const d = new Date(year, month, day);
-                         const isWeekend = d.getDay() === 0 || d.getDay() === 6;
-                         return (
-                            <div key={i} className={`sticky top-0 z-10 p-2 text-center font-semibold border-b ${isWeekend ? 'bg-gray-200' : 'bg-gray-100'}`}>
-                                {day}
-                                <span className="block text-xs font-normal text-gray-500">{d.toLocaleString('cs-CZ', { weekday: 'short' })}</span>
-                            </div>
-                         )
-                    })}
-                    
-                    {/* Rows: Vehicles and Reservations */}
-                    {vehicles.map((vehicle, vehicleIndex) => (
+                    {vehicles.map(vehicle => (
                         <React.Fragment key={vehicle.id}>
-                            <div className="sticky left-0 z-10 p-2 font-medium bg-white border-r flex items-center" style={{ gridRow: vehicleIndex + 2 }}>
-                                {vehicle.name}
-                            </div>
-                            {/* Empty cells for clicking */}
-                            {Array.from({ length: daysInMonth }, (_, dayIndex) => (
-                                <div key={dayIndex} className="border-b border-r hover:bg-blue-50 cursor-pointer" style={{ gridRow: vehicleIndex + 2, gridColumn: dayIndex + 2 }} onClick={() => openModalForNew(vehicle.id, dayIndex + 1)}></div>
-                            ))}
-                            {/* Reservations for this vehicle */}
-                            {reservations
-                                .filter(r => r.vehicleId === vehicle.id)
-                                .map(r => {
-                                    const startDate = new Date(r.startDate);
-                                    const endDate = new Date(r.endDate);
-
-                                    // Determine the start and end column for the reservation
-                                    let startCol = 1;
-                                    if (startDate.getFullYear() === year && startDate.getMonth() === month) {
-                                        startCol = startDate.getDate();
-                                    } else if (startDate < new Date(year, month, 1)) {
-                                        startCol = 1;
-                                    } else {
-                                        return null; // Reservation is outside this month's view
-                                    }
-                                    
-                                    let endCol = daysInMonth;
-                                    if (endDate.getFullYear() === year && endDate.getMonth() === month) {
-                                        endCol = endDate.getDate();
-                                    } else if (endDate > new Date(year, month, daysInMonth)) {
-                                       endCol = daysInMonth;
-                                    } else {
-                                        return null;
-                                    }
-                                    
-                                    const duration = endCol - startCol + 1;
-                                    if (duration < 0) return null;
-
+                            <div className="sticky left-0 bg-white z-10 border-r p-2 font-semibold flex items-center">{vehicle.name}</div>
+                            {days.map(day => {
+                                const reservation = getReservationForDay(vehicle.id, day);
+                                if (reservation) {
                                     return (
-                                        <div
-                                            key={r.id}
-                                            onClick={() => onEditReservation(r)}
-                                            className={`absolute h-12 p-2 rounded-lg text-white font-semibold text-sm overflow-hidden whitespace-nowrap cursor-pointer hover:opacity-80 transition-opacity ${statusColors[r.status]}`}
-                                            style={{
-                                                top: `${(vehicleIndex * 3.5) + 3.5}rem`, // Adjust based on row height
-                                                left: `calc(180px + ${(startCol - 1) * (100 / daysInMonth)}%)`,
-                                                width: `calc(${duration * (100 / daysInMonth)}% - 4px)`,
-                                                transform: 'translateY(4px)'
-                                            }}
-                                        >
-                                           {r.customer ? `${r.customer.first_name} ${r.customer.last_name}` : 'Čeká na zákazníka'}
+                                        <div key={day.toISOString()} onClick={() => onShowDetail(reservation)} className={`p-1 m-1 rounded cursor-pointer ${statusColors[reservation.status]}`}>
+                                            <p className="text-xs truncate font-semibold">{reservation.customers?.first_name} {reservation.customers?.last_name}</p>
                                         </div>
                                     );
-                                })
-                            }
+                                }
+                                return (
+                                    <div key={day.toISOString()} onClick={() => onNewReservation({ vehicle_id: vehicle.id, start_date: day.toISOString() })} className={`hover:bg-green-100 cursor-pointer ${day.getDay() === 0 || day.getDay() === 6 ? 'bg-gray-50' : ''}`}></div>
+                                );
+                            })}
                         </React.Fragment>
                     ))}
                 </div>
@@ -172,4 +99,4 @@ const Reservations: React.FC<ReservationsProps> = ({ onNewReservation, onEditRes
     );
 };
 
-export default Reservations;
+export default ReservationsPage;

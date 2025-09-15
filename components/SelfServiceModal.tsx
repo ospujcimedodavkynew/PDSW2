@@ -1,7 +1,9 @@
+
 import React, { useState } from 'react';
 import { X, Mail, Send, Calendar } from 'lucide-react';
-import { Vehicle } from '../types';
-import { createPendingReservation } from '../services/api';
+// Fix: Added .ts extension to the import paths.
+import { Vehicle } from '../types.ts';
+import { createPendingReservation } from '../services/api.ts';
 
 interface SelfServiceModalProps {
     isOpen: boolean;
@@ -48,7 +50,8 @@ const SelfServiceModal: React.FC<SelfServiceModalProps> = ({ isOpen, onClose, av
         try {
             const reservation = await createPendingReservation(selectedVehicleId, new Date(startDate), new Date(endDate));
             const selectedVehicle = availableVehicles.find(v => v.id === selectedVehicleId);
-            const link = `${window.location.origin}${window.location.pathname}?portal=${reservation.portalToken}`;
+            // Fix: The Reservation type uses 'portal_token', not 'portalToken'.
+            const link = `${window.location.origin}${window.location.pathname}?portal=${reservation.portal_token}`;
             
             const subject = encodeURIComponent(`Dokončení rezervace vozidla: ${selectedVehicle?.name}`);
             const body = encodeURIComponent(
@@ -104,7 +107,7 @@ Tým PujcimeDodavky.cz`
                         >
                             <option value="">-- Které vozidlo si zákazník přeje? --</option>
                             {availableVehicles.map(v => (
-                                <option key={v.id} value={v.id}>{v.name} ({v.licensePlate})</option>
+                                <option key={v.id} value={v.id}>{v.name} ({v.license_plate})</option>
                             ))}
                         </select>
                     </div>

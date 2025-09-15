@@ -1,242 +1,215 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import Sidebar from './components/Sidebar';
-import Header from './components/Header';
-import Dashboard from './pages/Dashboard';
-import Reservations from './pages/Reservations';
-import Vehicles from './pages/Vehicles';
-import Customers from './pages/Customers';
-import Contracts from './pages/Contracts';
-import Financials from './pages/Financials';
-import Reports from './pages/Reports';
-import CustomerPortal from './pages/CustomerPortal';
-import Login from './pages/Login';
-import ReservationFormModal from './components/ReservationFormModal'; // Import the new modal
-import { Page, Notification, Reservation, Vehicle, Customer } from './types';
-import { areSupabaseCredentialsSet, getSession, onAuthChange, onTableChange, getReservations, getVehicles, getCustomers } from './services/api';
-import { AlertTriangle, Loader } from 'lucide-react';
-import type { Session } from '@supabase/supabase-js';
+import { Page, User, Notification, Vehicle, Customer, Reservation } from './types.ts';
+import { onAuthStateChange, getNotifications, markNotificationAsRead, markAllNotificationsAsRead, getVehicles, getCustomers, getReservations } from './services/api.ts';
 
-const PAGE_TITLES: { [key in Page]: string } = {
-    [Page.DASHBOARD]: 'Přehled',
-    [Page.RESERVATIONS]: 'Kalendář rezervací',
-    [Page.VEHICLES]: 'Vozový park',
-    [Page.CUSTOMERS]: 'Zákazníci',
-    [Page.CONTRACTS]: 'Archiv smluv',
-    [Page.FINANCIALS]: 'Finance',
-    [Page.REPORTS]: 'Reporty a Statistiky',
-};
+import Sidebar from './components/Sidebar.tsx';
+import Header from './components/Header.tsx';
+import Login from './pages/Login.tsx';
+import CustomerPortal from './pages/CustomerPortal.tsx';
 
-const ConfigError = () => (
-    <div className="flex h-screen w-screen items-center justify-center bg-red-50 p-4">
-        <div className="text-center p-8 bg-white shadow-lg rounded-lg border border-red-200 max-w-lg">
-            <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-            <h1 className="text-2xl font-bold text-red-800">Chyba konfigurace aplikace</h1>
-            <p className="mt-2 text-gray-700">
-                Zdá se, že chybí klíčové údaje pro připojení k databázi (Supabase).
-            </p>
-            <p className="mt-4 text-sm text-gray-500">
-                Prosím, otevřete soubor <strong>index.html</strong> a vložte vaše klíče VITE_SUPABASE_URL a VITE_SUPABASE_ANON_KEY.
-            </p>
-        </div>
-    </div>
-);
+// Import pages
+import Dashboard from './pages/Dashboard.tsx';
+import ReservationsPage from './pages/Reservations.tsx';
+import VehiclesPage from './pages/Vehicles.tsx';
+import CustomersPage from './pages/Customers.tsx';
+import ContractsPage from './pages/Contracts.tsx';
+import FinancialsPage from './pages/Financials.tsx';
+import ReportsPage from './pages/Reports.tsx';
 
-const LoadingScreen = () => (
-    <div className="flex h-screen w-screen items-center justify-center bg-gray-100">
-        <Loader className="w-12 h-12 text-primary animate-spin" />
-    </div>
-)
+// Import modals
+import ReservationFormModal from './components/ReservationFormModal.tsx';
+import CustomerFormModal from './components/CustomerFormModal.tsx';
+import ReservationDetailModal from './components/ReservationDetailModal.tsx';
 
+const App: React.FC = () => {
+    const [user, setUser] = useState<User | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [currentPage, setCurrentPage] = useState<Page>(Page.DASHBOARD);
+    const [notifications, setNotifications] = useState<Notification[]>([]);
+    
+    // Global data state
+    const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+    const [customers, setCustomers] = useState<Customer[]>([]);
+    const [reservations, setReservations] = useState<Reservation[]>([]);
+    const [dataLoading, setDataLoading] = useState(true);
 
-function App() {
-  if (!areSupabaseCredentialsSet) return <ConfigError />;
-  
-  const urlParams = new URLSearchParams(window.location.search);
-  const portalToken = urlParams.get('portal');
-  if (portalToken) return <CustomerPortal token={portalToken} />;
+    // Modal states
+    const [isReservationModalOpen, setIsReservationModalOpen] = useState(false);
+    const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
+    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+    const [editingReservation, setEditingReservation] = useState<Reservation | null>(null);
+    const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+    const [prefilledReservation, setPrefilledReservation] = useState<Partial<Reservation> | null>(null);
 
-  const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [currentPage, setCurrentPage] = useState<Page>(Page.DASHBOARD);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  
-  // State for the centralized Reservation Modal
-  const [isReservationModalOpen, setIsReservationModalOpen] = useState(false);
-  const [reservationModalData, setReservationModalData] = useState<Partial<Reservation> & { initialDate?: Date } | null>(null);
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [dataLoading, setDataLoading] = useState(true);
-  
-  const fetchEssentialData = useCallback(async () => {
-    setDataLoading(true);
-    try {
-        const [vehData, custData] = await Promise.all([getVehicles(), getCustomers()]);
-        setVehicles(vehData);
-        setCustomers(custData);
-    } catch (error) {
-        console.error("Failed to fetch essential app data:", error);
-    } finally {
-        setDataLoading(false);
-    }
-  }, []);
+    const portalToken = new URLSearchParams(window.location.search).get('portal');
 
-  useEffect(() => {
-    getSession().then((session) => {
-        setSession(session);
-        setLoading(false);
-        if (session) {
-            fetchEssentialData();
+    const loadAllData = useCallback(async () => {
+        setDataLoading(true);
+        try {
+            const [vehiclesData, customersData, reservationsData] = await Promise.all([
+                getVehicles(),
+                getCustomers(),
+                getReservations(),
+            ]);
+            setVehicles(vehiclesData);
+            setCustomers(customersData);
+            setReservations(reservationsData);
+        } catch (error) {
+            console.error("Failed to load app data:", error);
+        } finally {
+            setDataLoading(false);
         }
-    });
+    }, []);
 
-    // FIX: The onAuthChange function in api.ts returns the subscription object directly,
-    // and its callback only receives the session object.
-    const subscription = onAuthChange((session) => {
-        setSession(session);
-        if (session) {
-             fetchEssentialData();
-        }
-    });
-
-    return () => {
-        subscription.unsubscribe();
-    };
-  }, [fetchEssentialData]);
-  
-  // --- MODAL HANDLERS ---
-  const handleOpenReservationModal = useCallback((data: Partial<Reservation> & { initialDate?: Date } | null = {}) => {
-    setReservationModalData(data);
-    setIsReservationModalOpen(true);
-  }, []);
-
-  const handleCloseReservationModal = () => {
-    setIsReservationModalOpen(false);
-    setReservationModalData(null);
-  };
-  
-  const handleSaveReservation = () => {
-    handleCloseReservationModal();
-    // Data will be refetched by listeners on respective pages, forcing a refresh
-  };
-
-  // --- NOTIFICATION LOGIC ---
-  useEffect(() => {
-    if (!session) return;
-
-    // 1. Real-time listener for customer submissions
-    const reservationSub = onTableChange('reservations', async (payload) => {
-        if (payload.eventType === 'UPDATE' && payload.old.status === 'pending-customer' && payload.new.status === 'scheduled') {
-            const allReservations = await getReservations();
-            const updatedRes = allReservations.find(r => r.id === payload.new.id);
-            if (updatedRes && updatedRes.customer && updatedRes.vehicle) {
-                const newNotification: Notification = {
-                    id: `res-update-${updatedRes.id}`,
-                    message: `Zákazník ${updatedRes.customer.first_name} ${updatedRes.customer.last_name} dokončil rezervaci vozidla ${updatedRes.vehicle.name}.`,
-                    type: 'info',
-                    createdAt: new Date(),
-                    isRead: false,
-                    page: Page.RESERVATIONS,
-                };
-                setNotifications(prev => [newNotification, ...prev]);
-            }
-        }
-    });
-
-    // 2. Periodic checker for upcoming reservation ends
-    const interval = setInterval(async () => {
-        const allReservations = await getReservations();
-        const active = allReservations.filter(r => r.status === 'active' && r.vehicle);
-        const now = new Date();
-        const twoHoursLater = new Date(now.getTime() + 2 * 60 * 60 * 1000);
-
-        active.forEach(res => {
-            const endDate = new Date(res.endDate);
-            const notificationId = `end-alert-${res.id}`;
-            const alreadyNotified = notifications.some(n => n.id === notificationId);
-
-            if (endDate > now && endDate <= twoHoursLater && !alreadyNotified) {
-                const newNotification: Notification = {
-                    id: notificationId,
-                    message: `Pronájem vozidla ${res.vehicle!.name} končí dnes v ${endDate.toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' })}.`,
-                    type: 'warning',
-                    createdAt: new Date(),
-                    isRead: false,
-                    page: Page.DASHBOARD,
-                };
-                setNotifications(prev => [newNotification, ...prev]);
+    useEffect(() => {
+        const unsubscribe = onAuthStateChange((user) => {
+            setUser(user);
+            setLoading(false);
+            if (user) {
+                fetchNotifications();
+                loadAllData();
             }
         });
-    }, 60 * 1000);
+        return () => unsubscribe();
+    }, [loadAllData]);
 
-    return () => {
-        reservationSub.unsubscribe();
-        clearInterval(interval);
+    const fetchNotifications = async () => {
+        const notifs = await getNotifications();
+        setNotifications(notifs);
     };
-  }, [session, notifications]);
+
+    const handleMarkAsRead = async (id: string) => {
+        await markNotificationAsRead(id);
+        setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+    };
+
+    const handleMarkAllAsRead = async () => {
+        await markAllNotificationsAsRead();
+        setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+    };
+    
+    // --- Modal Handlers ---
+    const openNewReservationModal = (prefillData: Partial<Reservation> = {}) => {
+        setEditingReservation(null);
+        setPrefilledReservation(prefillData);
+        setIsReservationModalOpen(true);
+    };
+
+    const openEditReservationModal = (reservation: Reservation) => {
+        setEditingReservation(reservation);
+        setPrefilledReservation(null);
+        setIsReservationModalOpen(true);
+    };
+
+    const openDetailModal = (reservation: Reservation) => {
+        setEditingReservation(reservation);
+        setIsDetailModalOpen(true);
+    };
+    
+    const openNewCustomerModal = () => {
+        setEditingCustomer(null);
+        setIsCustomerModalOpen(true);
+    };
+    
+    const openEditCustomerModal = (customer: Customer) => {
+        setEditingCustomer(customer);
+        setIsCustomerModalOpen(true);
+    };
+
+    const handleSave = () => {
+        loadAllData();
+        setIsReservationModalOpen(false);
+        setIsCustomerModalOpen(false);
+        setIsDetailModalOpen(false);
+    };
+    
+    const handleCustomerSaveSuccess = (newCustomer: Customer) => {
+        loadAllData(); // Reload all data to get the new customer
+        setIsCustomerModalOpen(false);
+        // If reservation modal is open, we might want to select this new customer
+        // This logic can be enhanced if needed
+    };
 
 
-  const handleMarkAsRead = (id: string) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
-  };
-  const handleMarkAllAsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
-  };
-  const handleNotificationClick = (notification: Notification) => {
-      if (notification.page) {
-          setCurrentPage(notification.page);
-      }
-  };
+    const renderPage = () => {
+        const pageProps = {
+            vehicles, customers, reservations, dataLoading,
+            onNewReservation: openNewReservationModal,
+            onEditReservation: openEditReservationModal,
+            onShowDetail: openDetailModal,
+            onNewCustomer: openNewCustomerModal,
+            onEditCustomer: openEditCustomerModal,
+            refreshData: loadAllData,
+        };
+        switch (currentPage) {
+            case Page.DASHBOARD: return <Dashboard {...pageProps} />;
+            case Page.RESERVATIONS: return <ReservationsPage {...pageProps} />;
+            case Page.VEHICLES: return <VehiclesPage {...pageProps} />;
+            case Page.CUSTOMERS: return <CustomersPage {...pageProps} />;
+            case Page.CONTRACTS: return <ContractsPage />;
+            case Page.FINANCIALS: return <FinancialsPage />;
+            case Page.REPORTS: return <ReportsPage {...pageProps}/>;
+            default: return <Dashboard {...pageProps} />;
+        }
+    };
+    
+    const pageTitles: Record<Page, string> = {
+        [Page.DASHBOARD]: 'Přehled',
+        [Page.RESERVATIONS]: 'Kalendář rezervací',
+        [Page.VEHICLES]: 'Vozový park',
+        [Page.CUSTOMERS]: 'Zákazníci',
+        [Page.CONTRACTS]: 'Smlouvy',
+        [Page.FINANCIALS]: 'Finance',
+        [Page.REPORTS]: 'Reporty',
+    };
 
-  const renderPage = () => {
-    switch (currentPage) {
-      case Page.DASHBOARD:
-        return <Dashboard setCurrentPage={setCurrentPage} onNewReservation={handleOpenReservationModal} />;
-      case Page.RESERVATIONS:
-        return <Reservations onNewReservation={handleOpenReservationModal} onEditReservation={handleOpenReservationModal} />;
-      case Page.VEHICLES:
-        return <Vehicles />;
-      case Page.CUSTOMERS:
-        return <Customers />;
-      case Page.CONTRACTS:
-        return <Contracts />;
-      case Page.FINANCIALS:
-        return <Financials />;
-      case Page.REPORTS:
-        return <Reports />;
-      default:
-        return <Dashboard setCurrentPage={setCurrentPage} onNewReservation={handleOpenReservationModal} />;
-    }
-  };
+    if (loading) return <div className="flex items-center justify-center min-h-screen">Načítání...</div>;
+    if (portalToken) return <CustomerPortal token={portalToken} />;
+    if (!user) return <Login />;
 
-  if (loading) return <LoadingScreen />;
-  if (!session) return <Login />;
-  if (dataLoading) return <LoadingScreen />;
+    return (
+        <div className="flex h-screen bg-light-bg">
+            <Sidebar currentPage={currentPage} setCurrentPage={setCurrentPage} />
+            <div className="flex-1 flex flex-col overflow-hidden">
+                <Header 
+                    title={pageTitles[currentPage]} 
+                    notifications={notifications}
+                    onMarkAsRead={handleMarkAsRead}
+                    onMarkAllAsRead={handleMarkAllAsRead}
+                    onNotificationClick={(n) => {}}
+                />
+                <main className="flex-1 overflow-y-auto p-6">
+                    {renderPage()}
+                </main>
+            </div>
+            
+            <ReservationFormModal
+                isOpen={isReservationModalOpen}
+                onClose={() => setIsReservationModalOpen(false)}
+                onSave={handleSave}
+                reservation={editingReservation}
+                prefillData={prefilledReservation}
+                vehicles={vehicles}
+                customers={customers}
+                onNewCustomer={openNewCustomerModal}
+            />
 
-  return (
-    <div className="flex h-screen bg-light-bg font-sans">
-      <Sidebar currentPage={currentPage} setCurrentPage={setCurrentPage} />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <Header 
-            title={PAGE_TITLES[currentPage]}
-            notifications={notifications}
-            onMarkAsRead={handleMarkAsRead}
-            onMarkAllAsRead={handleMarkAllAsRead}
-            onNotificationClick={handleNotificationClick}
-        />
-        <main className="flex-1 p-6 lg:p-8 overflow-y-auto">
-          {renderPage()}
-        </main>
-      </div>
-      <ReservationFormModal
-        isOpen={isReservationModalOpen}
-        onClose={handleCloseReservationModal}
-        onSave={handleSaveReservation}
-        reservationData={reservationModalData}
-        vehicles={vehicles}
-        customers={customers}
-      />
-    </div>
-  );
-}
+            <CustomerFormModal
+                isOpen={isCustomerModalOpen}
+                onClose={() => setIsCustomerModalOpen(false)}
+                onSave={handleCustomerSaveSuccess}
+                customer={editingCustomer}
+            />
+
+            <ReservationDetailModal
+                isOpen={isDetailModalOpen}
+                onClose={() => setIsDetailModalOpen(false)}
+                onSave={handleSave}
+                reservation={editingReservation}
+            />
+
+        </div>
+    );
+};
 
 export default App;

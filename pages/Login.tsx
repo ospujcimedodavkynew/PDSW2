@@ -1,5 +1,6 @@
 import React, { useState, FormEvent } from 'react';
-import { signInWithPassword } from '../services/api';
+// Fix: Added .ts extension to the import path.
+import { signInWithPassword } from '../services/api.ts';
 import { LogIn, Loader } from 'lucide-react';
 
 const Login: React.FC = () => {

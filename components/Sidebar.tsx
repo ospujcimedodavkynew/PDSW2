@@ -1,7 +1,8 @@
 import React from 'react';
-import { Page } from '../types';
+// Fix: Added .ts extension to the import paths.
+import { Page } from '../types.ts';
 import { LayoutDashboard, Car, Users, Calendar, FileText, DollarSign, LogOut, BarChart3 } from 'lucide-react';
-import { signOut } from '../services/api';
+import { signOut } from '../services/api.ts';
 
 interface SidebarProps {
     currentPage: Page;

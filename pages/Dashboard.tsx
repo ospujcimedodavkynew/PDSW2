@@ -1,220 +1,109 @@
-import React, { useEffect, useState } from 'react';
-import { getVehicles, getReservations, onTableChange } from '../services/api';
-import { Reservation, Vehicle, Page } from '../types';
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
-import { Car, Users, CalendarCheck, AlertTriangle, Link, Clock, ArrowRightLeft, Loader } from 'lucide-react';
-import ReservationDetailModal from '../components/ReservationDetailModal';
-import SelfServiceModal from '../components/SelfServiceModal';
+import React from 'react';
+import { Vehicle, Reservation } from '../types.ts';
+import { Car, CheckCircle, Clock } from 'lucide-react';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
-const COLORS = { available: '#22C55E', rented: '#F59E0B', maintenance: '#EF4444' };
-
+// Fix: Added props interface to accept data from App.tsx.
 interface DashboardProps {
-    setCurrentPage: (page: Page) => void;
-    onNewReservation: () => void;
+    vehicles: Vehicle[];
+    reservations: Reservation[];
+    dataLoading: boolean;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage, onNewReservation }) => {
-    const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-    const [reservations, setReservations] = useState<Reservation[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
-    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-    const [isSelfServiceModalOpen, setIsSelfServiceModalOpen] = useState(false);
-    const [lastUpdate, setLastUpdate] = useState(Date.now());
+const Dashboard: React.FC<DashboardProps> = ({ vehicles, reservations, dataLoading }) => {
+    // Fix: Removed internal state and useEffect for data fetching. Data is now passed via props.
+    if (dataLoading) {
+        return <div className="text-center p-8">Načítám data...</div>;
+    }
 
-    const fetchData = async () => {
-        // Keep loading state true only on initial load
-        if (loading === false) setLoading(true);
-        try {
-            const [vehiclesData, reservationsData] = await Promise.all([getVehicles(), getReservations()]);
-            setVehicles(vehiclesData);
-            setReservations(reservationsData);
-        } catch (error) {
-            console.error("Failed to fetch dashboard data:", error);
-        } finally {
-            setLoading(false);
-        }
-    };
+    const availableVehicles = vehicles.filter(v => v.status === 'available').length;
+    const rentedVehicles = vehicles.filter(v => v.status === 'rented').length;
+    const maintenanceVehicles = vehicles.filter(v => v.status === 'maintenance').length;
     
-    // This effect handles fetching data when the component mounts or lastUpdate changes
-    useEffect(() => {
-        fetchData();
-    }, [lastUpdate]);
-
-    useEffect(() => {
-        // Set up real-time subscription
-        const reservationsListener = onTableChange('reservations', () => {
-            console.log('Reservation change detected, refetching dashboard data...');
-            setLastUpdate(Date.now()); // Trigger a refetch
-        });
-        
-        const vehiclesListener = onTableChange('vehicles', () => {
-            console.log('Vehicle change detected, refetching dashboard data...');
-            setLastUpdate(Date.now()); // Trigger a refetch
-        });
-
-        // Clean up subscription on component unmount
-        return () => {
-            reservationsListener.unsubscribe();
-            vehiclesListener.unsubscribe();
-        };
-    }, []);
-
-    const vehicleStatusData = [
-        { name: 'K dispozici', value: vehicles.filter(v => v.status === 'available').length },
-        { name: 'Pronajato', value: vehicles.filter(v => v.status === 'rented').length },
-        { name: 'V servisu', value: vehicles.filter(v => v.status === 'maintenance').length },
+    const fleetStatusData = [
+        { name: 'Dostupné', value: availableVehicles },
+        { name: 'Pronajaté', value: rentedVehicles },
+        { name: 'V servisu', value: maintenanceVehicles },
     ];
-    
-    const fleetUtilization = vehicles.length > 0 ? Math.round((vehicles.filter(v => v.status === 'rented').length / vehicles.length) * 100) : 0;
+    const COLORS = ['#16A34A', '#F97316', '#64748B'];
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(today.getDate() + 1);
+    const now = new Date();
+    const todayStart = new Date(now.setHours(0, 0, 0, 0));
+    const todayEnd = new Date(now.setHours(23, 59, 59, 999));
 
-    const todaysDepartures = reservations
-        .filter(r => r.status === 'scheduled' && new Date(r.startDate) >= today && new Date(r.startDate) < tomorrow)
-        .map(r => ({ ...r, type: 'departure' as const, time: new Date(r.startDate) }));
+    const todaysDepartures = reservations.filter(r => {
+        const startDate = new Date(r.start_date);
+        return startDate >= todayStart && startDate <= todayEnd && r.status === 'scheduled';
+    });
 
-    const todaysArrivals = reservations
-        .filter(r => r.status === 'active' && new Date(r.endDate) >= today && new Date(r.endDate) < tomorrow)
-        .map(r => ({ ...r, type: 'arrival' as const, time: new Date(r.endDate) }));
-
-    const todaysActivities = [...todaysDepartures, ...todaysArrivals].sort((a, b) => a.time.getTime() - b.time.getTime());
-
-    const activeRentals = reservations.filter(r => r.status === 'active');
-
-    const maintenanceVehicles = vehicles.filter(v => v.status === 'maintenance');
-
-    const handleOpenDetailModal = (reservation: Reservation) => {
-        setSelectedReservation(reservation);
-        setIsDetailModalOpen(true);
-    };
-    
-    const handleCloseModal = () => {
-        setIsDetailModalOpen(false);
-        setSelectedReservation(null);
-        // Data will be refetched by the real-time listener, no need to call fetchData() here.
-    };
-    
-    if (loading) return <div className="flex items-center justify-center h-full"><Loader className="w-8 h-8 animate-spin" /> Načítání přehledu...</div>;
+    const activeReservations = reservations.filter(r => r.status === 'active');
 
     return (
-        <div className="space-y-6">
-            <ReservationDetailModal isOpen={isDetailModalOpen} onClose={handleCloseModal} reservation={selectedReservation} />
-            <SelfServiceModal isOpen={isSelfServiceModalOpen} onClose={() => setIsSelfServiceModalOpen(false)} availableVehicles={vehicles.filter(v => v.status === 'available')} onLinkGenerated={() => setLastUpdate(Date.now())} />
-
-            {/* Header Actions */}
-            <div className="flex justify-between items-center">
-                <div className="text-lg text-gray-600">
-                    Vítejte zpět!
-                </div>
-                <div className="flex space-x-3">
-                     <button onClick={() => setIsSelfServiceModalOpen(true)} className="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors flex items-center">
-                        <Link className="w-5 h-5 mr-2" /> Vytvořit samoobslužnou rezervaci
-                    </button>
-                    <button onClick={() => setCurrentPage(Page.CUSTOMERS)} className="bg-gray-200 text-dark-text font-bold py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors flex items-center">
-                        <Users className="w-5 h-5 mr-2" /> Nový zákazník
-                    </button>
-                    <button onClick={onNewReservation} className="bg-secondary text-dark-text font-bold py-2 px-4 rounded-lg hover:bg-secondary-hover transition-colors flex items-center">
-                        <CalendarCheck className="w-5 h-5 mr-2" /> Nová rezervace
-                    </button>
-                </div>
-            </div>
-
-            {/* Key Metrics */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow-md">
-                    <h2 className="text-xl font-bold text-gray-700 mb-4">Stav flotily</h2>
-                     <div className="grid grid-cols-2 gap-4 items-center">
-                        <div>
-                            <ResponsiveContainer width="100%" height={200}>
-                                <PieChart>
-                                    <Pie data={vehicleStatusData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} fill="#8884d8">
-                                        {vehicleStatusData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={COLORS[entry.name === 'K dispozici' ? 'available' : entry.name === 'Pronajato' ? 'rented' : 'maintenance']} />
-                                        ))}
-                                    </Pie>
-                                    <Tooltip />
-                                    <Legend />
-                                </PieChart>
-                            </ResponsiveContainer>
-                        </div>
-                        <div className="text-center">
-                            <p className="text-gray-500 font-medium">Vytíženost flotily</p>
-                            <p className="text-6xl font-bold text-primary">{fleetUtilization}%</p>
-                        </div>
+        <div className="space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="bg-white p-6 rounded-lg shadow flex items-center">
+                    <Car className="w-10 h-10 text-primary mr-4" />
+                    <div>
+                        <h2 className="text-lg font-semibold text-gray-600">Celkem vozidel</h2>
+                        <p className="text-3xl font-bold text-primary mt-1">{vehicles.length}</p>
                     </div>
                 </div>
-                 <div className="bg-white p-6 rounded-lg shadow-md">
-                    <h2 className="text-xl font-bold text-gray-700 mb-4 flex items-center"><AlertTriangle className="mr-2 text-red-500"/>Upozornění</h2>
-                    {maintenanceVehicles.length > 0 ? (
-                        <ul className="space-y-2">
-                           {maintenanceVehicles.map(v => (
-                             <li key={v.id} className="text-gray-600"><span className="font-semibold">{v.name}</span> je v servisu.</li>
-                           ))}
-                        </ul>
-                    ) : <p className="text-gray-500">Žádná důležitá upozornění.</p>}
+                <div className="bg-white p-6 rounded-lg shadow flex items-center">
+                    <CheckCircle className="w-10 h-10 text-green-600 mr-4" />
+                    <div>
+                        <h2 className="text-lg font-semibold text-gray-600">Dostupných</h2>
+                        <p className="text-3xl font-bold text-green-600 mt-1">{availableVehicles}</p>
+                    </div>
+                </div>
+                <div className="bg-white p-6 rounded-lg shadow flex items-center">
+                    <Clock className="w-10 h-10 text-orange-500 mr-4" />
+                    <div>
+                        <h2 className="text-lg font-semibold text-gray-600">Pronajatých</h2>
+                        <p className="text-3xl font-bold text-orange-500 mt-1">{rentedVehicles}</p>
+                    </div>
+                </div>
+                <div className="bg-white p-6 rounded-lg shadow flex items-center">
+                    <p className="text-3xl font-bold text-red-600 mt-2">{todaysDepartures.length}</p>
+                    <h2 className="text-lg font-semibold text-gray-600 ml-3">Dnešních odjezdů</h2>
                 </div>
             </div>
-            
-            {/* Action Center */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-white p-6 rounded-lg shadow-md">
-                     <h2 className="text-xl font-bold text-gray-700 mb-4">Dnešní aktivity</h2>
-                     {todaysActivities.length > 0 ? (
-                        <ul className="space-y-3">
-                           {todaysActivities.map(res => (
-                               <li key={res.id} className={`flex justify-between items-center p-3 rounded-md ${res.type === 'departure' ? 'bg-green-50' : 'bg-yellow-50'}`}>
-                                 <div>
-                                    <p className="font-semibold">{res.customer?.first_name} {res.customer?.last_name}</p>
-                                    <p className="text-sm text-gray-500">{res.vehicle?.name} - <Clock className="inline w-3 h-3 mr-1"/>{res.time.toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' })}</p>
-                                 </div>
-                                 {res.type === 'departure' ? (
-                                    <button
-                                        onClick={() => handleOpenDetailModal(res)}
-                                        disabled={res.vehicle?.status !== 'available'}
-                                        className={`px-3 py-1 rounded text-sm font-semibold text-white transition-colors ${
-                                            res.vehicle?.status === 'available'
-                                            ? 'bg-green-500 hover:bg-green-600'
-                                            : 'bg-gray-400 cursor-not-allowed'
-                                        }`}
-                                        title={res.vehicle?.status !== 'available' ? 'Vozidlo není k dispozici (je pronajaté nebo v servisu)' : 'Vydat vozidlo'}
-                                    >
-                                        {res.vehicle?.status === 'available' ? 'Vydat' : 'Blokováno'}
-                                    </button>
-                                 ) : (
-                                    <button onClick={() => handleOpenDetailModal(res)} className="bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-600 text-sm font-semibold">
-                                        Převzít
-                                    </button>
-                                 )}
-                               </li>
-                           ))}
-                        </ul>
-                     ) : <p className="text-gray-500">Dnes nejsou plánované žádné odjezdy ani příjezdy.</p>}
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-1 bg-white p-6 rounded-lg shadow">
+                    <h2 className="text-xl font-bold mb-4 text-center">Stav flotily</h2>
+                    <ResponsiveContainer width="100%" height={250}>
+                        <PieChart>
+                            <Pie data={fleetStatusData} cx="50%" cy="50%" labelLine={false} outerRadius={100} fill="#8884d8" dataKey="value" nameKey="name" label={(entry) => `${entry.name}: ${entry.value}`}>
+                                {fleetStatusData.map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                ))}
+                            </Pie>
+                            <Tooltip />
+                        </PieChart>
+                    </ResponsiveContainer>
                 </div>
-                <div className="bg-white p-6 rounded-lg shadow-md">
-                    <h2 className="text-xl font-bold text-gray-700 mb-4 flex items-center">
-                        <ArrowRightLeft className="mr-2 text-blue-600" /> Právě probíhající pronájmy
-                    </h2>
-                     {activeRentals.length > 0 ? (
-                        <ul className="space-y-3">
-                           {activeRentals.map(res => (
-                               <li key={res.id} className="flex justify-between items-center p-3 rounded-md bg-blue-50">
-                                 <div>
-                                    <p className="font-semibold">{res.customer?.first_name} {res.customer?.last_name}</p>
-                                    <p className="text-sm text-gray-500">
-                                        {res.vehicle?.name} | Plánovaný návrat: {new Date(res.endDate).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric' })} v {new Date(res.endDate).toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' })}
-                                    </p>
-                                 </div>
-                                 <button onClick={() => handleOpenDetailModal(res)} className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm font-semibold">
-                                    Převzít vozidlo
-                                </button>
-                               </li>
-                           ))}
-                        </ul>
-                    ) : <p className="text-gray-500">Aktuálně nejsou žádná vozidla pronajata.</p>}
+                <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow">
+                     <h2 className="text-xl font-bold mb-4">Probíhající pronájmy</h2>
+                     <div className="overflow-y-auto h-64">
+                        {activeReservations.length > 0 ? (
+                             <ul className="space-y-3">
+                                {activeReservations.map(res => (
+                                    <li key={res.id} className="p-3 bg-gray-50 rounded-md flex justify-between items-center">
+                                        <div>
+                                            <p className="font-semibold">{res.vehicles?.name} ({res.vehicles?.license_plate})</p>
+                                            <p className="text-sm text-gray-600">{res.customers?.first_name} {res.customers?.last_name}</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-sm">Návrat:</p>
+                                            <p className="font-medium">{new Date(res.end_date).toLocaleDateString('cs-CZ')}</p>
+                                        </div>
+                                    </li>
+                                ))}
+                            </ul>
+                        ) : (
+                            <p className="text-gray-500 pt-10 text-center">Aktuálně nejsou žádné probíhající pronájmy.</p>
+                        )}
+                     </div>
                 </div>
             </div>
         </div>

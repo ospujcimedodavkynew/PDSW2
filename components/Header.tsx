@@ -1,6 +1,7 @@
 import React from 'react';
-import NotificationCenter from './NotificationCenter';
-import type { Notification, Page } from '../types';
+// Fix: Added .tsx and .ts extensions to the import paths.
+import NotificationCenter from './NotificationCenter.tsx';
+import type { Notification } from '../types.ts';
 
 interface HeaderProps {
     title: string;

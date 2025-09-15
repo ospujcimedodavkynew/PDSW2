@@ -1,20 +1,37 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { getContracts } from '../services/api';
-import type { Contract } from '../types';
-import { Search } from 'lucide-react';
+import { getContracts } from '../services/api.ts';
+import { Contract } from '../types.ts';
+import { FileText, Search, X } from 'lucide-react';
+
+const ContractDetailModal: React.FC<{ contract: Contract | null, onClose: () => void }> = ({ contract, onClose }) => {
+    if (!contract) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-2xl p-8 w-full max-w-3xl">
+                <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-2xl font-bold">Detail smlouvy</h2>
+                    <button onClick={onClose} className="p-1 rounded-full hover:bg-gray-200"><X /></button>
+                </div>
+                <div className="bg-gray-100 p-4 rounded max-h-[60vh] overflow-y-auto">
+                    <pre className="whitespace-pre-wrap text-sm">{contract.contract_text}</pre>
+                </div>
+                <div className="mt-6 flex justify-end">
+                    <button onClick={onClose} className="py-2 px-4 rounded-lg bg-gray-200 hover:bg-gray-300">Zavřít</button>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 const Contracts: React.FC = () => {
     const [contracts, setContracts] = useState<Contract[]>([]);
     const [loading, setLoading] = useState(true);
-    const [selectedContract, setSelectedContract] = useState<Contract | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
-    const [currentPage, setCurrentPage] = useState(1);
-    
-    const ITEMS_PER_PAGE = 15;
+    const [selectedContract, setSelectedContract] = useState<Contract | null>(null);
 
     useEffect(() => {
         const fetchData = async () => {
-            setLoading(true);
             try {
                 const data = await getContracts();
                 setContracts(data);
@@ -29,145 +46,56 @@ const Contracts: React.FC = () => {
 
     const filteredContracts = useMemo(() => {
         return contracts.filter(contract => {
-            const customerName = `${contract.customer?.first_name} ${contract.customer?.last_name}`.toLowerCase();
-            const vehicleName = contract.vehicle?.name.toLowerCase() || '';
-            const licensePlate = contract.vehicle?.licensePlate.toLowerCase() || '';
-            const term = searchTerm.toLowerCase();
-
-            return term === '' ||
-                customerName.includes(term) ||
-                vehicleName.includes(term) ||
-                licensePlate.includes(term);
+            const customerName = `${contract.customers?.first_name} ${contract.customers?.last_name}`.toLowerCase();
+            const vehicleName = `${contract.vehicles?.name} ${contract.vehicles?.license_plate}`.toLowerCase();
+            return customerName.includes(searchTerm.toLowerCase()) || vehicleName.includes(searchTerm.toLowerCase());
         });
     }, [contracts, searchTerm]);
-    
-    const pageCount = Math.ceil(filteredContracts.length / ITEMS_PER_PAGE);
-    const paginatedContracts = filteredContracts.slice(
-        (currentPage - 1) * ITEMS_PER_PAGE,
-        currentPage * ITEMS_PER_PAGE
-    );
-    
-    useEffect(() => {
-        // Reset to first page if filters change and current page is out of bounds
-        if (currentPage > pageCount) {
-            setCurrentPage(1);
-        }
-    }, [filteredContracts, currentPage, pageCount]);
-
 
     if (loading) return <div>Načítání smluv...</div>;
-    
-    if (selectedContract) {
-        return (
-            <div className="bg-white p-8 rounded-lg shadow-lg">
-                <div className="flex justify-between items-start mb-6">
-                    <div>
-                        <h2 className="text-2xl font-bold">Detail Smlouvy</h2>
-                        <p className="text-gray-500">Číslo: {selectedContract.id}</p>
-                    </div>
-                    <button onClick={() => setSelectedContract(null)} className="text-gray-500 hover:text-gray-800 text-2xl font-bold">&times;</button>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                    {selectedContract.customer && (
-                        <div className="bg-gray-50 p-4 rounded-md">
-                            <h3 className="font-bold text-lg mb-2">Nájemce</h3>
-                            <p>{selectedContract.customer.first_name} {selectedContract.customer.last_name}</p>
-                            <p>{selectedContract.customer.email}</p>
-                            <p>{selectedContract.customer.phone}</p>
-                        </div>
-                    )}
-                    {selectedContract.vehicle && (
-                        <div className="bg-gray-50 p-4 rounded-md">
-                            <h3 className="font-bold text-lg mb-2">Vozidlo</h3>
-                            <p>{selectedContract.vehicle.name}</p>
-                            <p>SPZ: {selectedContract.vehicle.licensePlate}</p>
-                            <p>Rok: {selectedContract.vehicle.year}</p>
-                        </div>
-                    )}
-                </div>
-
-                <div className="mt-4">
-                    <h3 className="font-bold text-lg mb-2">Plné znění smlouvy</h3>
-                    <pre className="whitespace-pre-wrap bg-gray-100 p-4 rounded-md text-sm font-mono border overflow-auto max-h-96">
-                        {selectedContract.contractText}
-                    </pre>
-                </div>
-
-                <div className="mt-8 text-right">
-                     <button onClick={() => window.print()} className="bg-primary text-white py-2 px-6 rounded-lg hover:bg-primary-hover">
-                        Tisknout
-                    </button>
-                </div>
-            </div>
-        );
-    }
 
     return (
-        <div>
-            <div className="flex justify-between items-center mb-6">
-                 <div className="relative w-full max-w-md">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <input
-                        type="text"
-                        placeholder="Hledat podle zákazníka nebo vozidla..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full p-2 pl-10 border rounded-md"
-                    />
-                </div>
+        <div className="space-y-6">
+            <ContractDetailModal contract={selectedContract} onClose={() => setSelectedContract(null)} />
+            <div className="bg-white p-4 rounded-lg shadow flex items-center">
+                <Search className="text-gray-400 mr-3"/>
+                <input
+                    type="text"
+                    placeholder="Hledat podle zákazníka nebo vozidla..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full bg-transparent focus:outline-none"
+                />
             </div>
             <div className="bg-white rounded-lg shadow-md overflow-hidden">
-                <table className="min-w-full">
-                    <thead className="bg-gray-50">
-                        <tr className="bg-gray-100 text-left text-gray-600 uppercase text-sm">
-                            <th className="px-5 py-3">ID Smlouvy</th>
-                            <th className="px-5 py-3">Zákazník</th>
-                            <th className="px-5 py-3">Vozidlo</th>
-                            <th className="px-5 py-3">Datum vystavení</th>
-                            <th className="px-5 py-3">Akce</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200">
-                        {paginatedContracts.length > 0 ? (
-                            paginatedContracts.map(contract => (
-                                <tr key={contract.id} className="hover:bg-gray-50">
-                                    <td className="px-5 py-4 text-sm text-gray-500 font-mono">{contract.id.substring(0, 8)}...</td>
-                                    <td className="px-5 py-4">{contract.customer?.first_name} {contract.customer?.last_name}</td>
-                                    <td className="px-5 py-4">{contract.vehicle?.name}</td>
-                                    <td className="px-5 py-4">{new Date(contract.generatedAt).toLocaleDateString('cs-CZ')}</td>
-                                    <td className="px-5 py-4">
-                                        <button onClick={() => setSelectedContract(contract)} className="text-primary hover:text-primary-hover font-semibold">Zobrazit</button>
+                 <div className="overflow-x-auto">
+                    <table className="min-w-full">
+                        <thead className="bg-gray-100 text-left text-gray-600 uppercase text-sm">
+                            <tr>
+                                <th className="px-6 py-3">Vytvořeno</th>
+                                <th className="px-6 py-3">Zákazník</th>
+                                <th className="px-6 py-3">Vozidlo</th>
+                                <th className="px-6 py-3"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {filteredContracts.map(contract => (
+                                <tr key={contract.id} className="hover:bg-gray-50 border-t">
+                                    <td className="px-6 py-4 whitespace-nowrap">{new Date(contract.generated_at).toLocaleString('cs-CZ')}</td>
+                                    <td className="px-6 py-4">{contract.customers?.first_name} {contract.customers?.last_name}</td>
+                                    <td className="px-6 py-4">{contract.vehicles?.name} ({contract.vehicles?.license_plate})</td>
+                                    <td className="px-6 py-4 text-right">
+                                        <button onClick={() => setSelectedContract(contract)} className="text-primary hover:underline flex items-center">
+                                            <FileText className="w-4 h-4 mr-1" /> Zobrazit
+                                        </button>
                                     </td>
                                 </tr>
-                            ))
-                        ) : (
-                            <tr>
-                                <td colSpan={5} className="text-center py-10 text-gray-500">
-                                    Nebyly nalezeny žádné smlouvy odpovídající hledání.
-                                </td>
-                            </tr>
-                        )}
-                    </tbody>
-                </table>
-                 {pageCount > 1 && (
-                    <div className="p-4 flex justify-between items-center">
-                        <button
-                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                            disabled={currentPage === 1}
-                            className="px-4 py-2 bg-gray-200 rounded-md disabled:opacity-50"
-                        >
-                            Předchozí
-                        </button>
-                        <span>Stránka {currentPage} z {pageCount}</span>
-                        <button
-                            onClick={() => setCurrentPage(p => Math.min(pageCount, p + 1))}
-                            disabled={currentPage === pageCount}
-                             className="px-4 py-2 bg-gray-200 rounded-md disabled:opacity-50"
-                        >
-                            Následující
-                        </button>
-                    </div>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+                {filteredContracts.length === 0 && (
+                    <p className="text-center text-gray-500 py-8">Nebyly nalezeny žádné smlouvy.</p>
                 )}
             </div>
         </div>
