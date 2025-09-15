@@ -1,29 +1,28 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { getVehicles, getCustomers, getReservations } from '../services/api';
-import type { Reservation, Vehicle, Customer } from '../types';
+import { getVehicles, getReservations, onTableChange } from '../services/api';
+import type { Reservation, Vehicle } from '../types';
 import { ChevronLeft, ChevronRight, Plus, Loader } from 'lucide-react';
-import ReservationFormModal from '../components/ReservationFormModal';
 
-const Reservations: React.FC = () => {
+interface ReservationsProps {
+    onNewReservation: (data: Partial<Reservation> & { initialDate?: Date }) => void;
+    onEditReservation: (reservation: Reservation) => void;
+}
+
+const Reservations: React.FC<ReservationsProps> = ({ onNewReservation, onEditReservation }) => {
     const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-    const [customers, setCustomers] = useState<Customer[]>([]);
     const [reservations, setReservations] = useState<Reservation[]>([]);
     const [loading, setLoading] = useState(true);
     const [currentDate, setCurrentDate] = useState(new Date());
-
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [modalData, setModalData] = useState<Partial<Reservation> & { initialDate?: Date } | null>(null);
+    const [lastUpdate, setLastUpdate] = useState(Date.now());
 
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            const [vehData, custData, resData] = await Promise.all([
+            const [vehData, resData] = await Promise.all([
                 getVehicles(),
-                getCustomers(),
                 getReservations(),
             ]);
             setVehicles(vehData);
-            setCustomers(custData);
             setReservations(resData);
         } catch (error) {
             console.error("Failed to fetch calendar data:", error);
@@ -31,17 +30,28 @@ const Reservations: React.FC = () => {
             setLoading(false);
         }
     }, []);
-
+    
     useEffect(() => {
         fetchData();
-    }, [fetchData]);
+    }, [fetchData, lastUpdate]);
+
+    useEffect(() => {
+        const reservationSub = onTableChange('reservations', () => {
+             console.log('Reservation change detected, refetching calendar data...');
+             setLastUpdate(Date.now());
+        });
+
+        return () => {
+            reservationSub.unsubscribe();
+        }
+    }, []);
 
     const { year, month, daysInMonth, firstDayOfMonth } = useMemo(() => {
         const year = currentDate.getFullYear();
         const month = currentDate.getMonth();
         const daysInMonth = new Date(year, month + 1, 0).getDate();
-        const firstDayOfMonth = new Date(year, month, 1).getDay(); // 0 = Sunday, 1 = Monday...
-        return { year, month, daysInMonth, firstDayOfMonth: (firstDayOfMonth === 0 ? 6 : firstDayOfMonth -1) }; // Adjust to Mon-Sun week
+        const firstDayOfMonth = new Date(year, month, 1).getDay();
+        return { year, month, daysInMonth, firstDayOfMonth: (firstDayOfMonth === 0 ? 6 : firstDayOfMonth -1) };
     }, [currentDate]);
 
     const handlePrevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
@@ -49,23 +59,7 @@ const Reservations: React.FC = () => {
     
     const openModalForNew = (vehicleId: string, date?: number) => {
         const initialDate = date != null ? new Date(year, month, date) : new Date();
-        setModalData({ vehicleId, initialDate });
-        setIsModalOpen(true);
-    };
-
-    const openModalForEdit = (reservation: Reservation) => {
-        setModalData(reservation);
-        setIsModalOpen(true);
-    };
-
-    const handleCloseModal = () => {
-        setIsModalOpen(false);
-        setModalData(null);
-    };
-
-    const handleSave = () => {
-        fetchData();
-        handleCloseModal();
+        onNewReservation({ vehicleId, initialDate });
     };
 
     const statusColors: { [key in Reservation['status']]: string } = {
@@ -81,14 +75,6 @@ const Reservations: React.FC = () => {
 
     return (
         <div className="flex flex-col h-full">
-            <ReservationFormModal
-                isOpen={isModalOpen}
-                onClose={handleCloseModal}
-                onSave={handleSave}
-                reservationData={modalData}
-                vehicles={vehicles}
-                customers={customers}
-            />
             {/* Header */}
             <div className="flex justify-between items-center mb-4">
                 <div className="flex items-center bg-white shadow-sm rounded-lg p-1">
@@ -98,7 +84,7 @@ const Reservations: React.FC = () => {
                     </span>
                     <button onClick={handleNextMonth} className="p-2 rounded-md hover:bg-gray-100"><ChevronRight /></button>
                 </div>
-                <button onClick={() => openModalForNew('')} className="bg-secondary text-dark-text font-bold py-2 px-4 rounded-lg hover:bg-secondary-hover transition-colors flex items-center">
+                <button onClick={() => onNewReservation({})} className="bg-secondary text-dark-text font-bold py-2 px-4 rounded-lg hover:bg-secondary-hover transition-colors flex items-center">
                     <Plus className="w-5 h-5 mr-2" />
                     Nová rezervace
                 </button>
@@ -164,7 +150,7 @@ const Reservations: React.FC = () => {
                                     return (
                                         <div
                                             key={r.id}
-                                            onClick={() => openModalForEdit(r)}
+                                            onClick={() => onEditReservation(r)}
                                             className={`absolute h-12 p-2 rounded-lg text-white font-semibold text-sm overflow-hidden whitespace-nowrap cursor-pointer hover:opacity-80 transition-opacity ${statusColors[r.status]}`}
                                             style={{
                                                 top: `${(vehicleIndex * 3.5) + 3.5}rem`, // Adjust based on row height

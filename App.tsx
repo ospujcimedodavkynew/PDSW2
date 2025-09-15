@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useCallback } from 'react';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import Dashboard from './pages/Dashboard';
@@ -10,8 +11,9 @@ import Financials from './pages/Financials';
 import Reports from './pages/Reports';
 import CustomerPortal from './pages/CustomerPortal';
 import Login from './pages/Login';
-import { Page, Notification } from './types';
-import { areSupabaseCredentialsSet, getSession, onAuthChange, onTableChange, getReservations } from './services/api';
+import ReservationFormModal from './components/ReservationFormModal'; // Import the new modal
+import { Page, Notification, Reservation, Vehicle, Customer } from './types';
+import { areSupabaseCredentialsSet, getSession, onAuthChange, onTableChange, getReservations, getVehicles, getCustomers } from './services/api';
 import { AlertTriangle, Loader } from 'lucide-react';
 import type { Session } from '@supabase/supabase-js';
 
@@ -58,21 +60,65 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState<Page>(Page.DASHBOARD);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  
+  // State for the centralized Reservation Modal
+  const [isReservationModalOpen, setIsReservationModalOpen] = useState(false);
+  const [reservationModalData, setReservationModalData] = useState<Partial<Reservation> & { initialDate?: Date } | null>(null);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [dataLoading, setDataLoading] = useState(true);
+  
+  const fetchEssentialData = useCallback(async () => {
+    setDataLoading(true);
+    try {
+        const [vehData, custData] = await Promise.all([getVehicles(), getCustomers()]);
+        setVehicles(vehData);
+        setCustomers(custData);
+    } catch (error) {
+        console.error("Failed to fetch essential app data:", error);
+    } finally {
+        setDataLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     getSession().then((session) => {
         setSession(session);
         setLoading(false);
+        if (session) {
+            fetchEssentialData();
+        }
     });
 
-    const authSubscription = onAuthChange((session) => {
+    // FIX: The onAuthChange function in api.ts returns the subscription object directly,
+    // and its callback only receives the session object.
+    const subscription = onAuthChange((session) => {
         setSession(session);
+        if (session) {
+             fetchEssentialData();
+        }
     });
 
     return () => {
-        authSubscription.unsubscribe();
+        subscription.unsubscribe();
     };
+  }, [fetchEssentialData]);
+  
+  // --- MODAL HANDLERS ---
+  const handleOpenReservationModal = useCallback((data: Partial<Reservation> & { initialDate?: Date } | null = {}) => {
+    setReservationModalData(data);
+    setIsReservationModalOpen(true);
   }, []);
+
+  const handleCloseReservationModal = () => {
+    setIsReservationModalOpen(false);
+    setReservationModalData(null);
+  };
+  
+  const handleSaveReservation = () => {
+    handleCloseReservationModal();
+    // Data will be refetched by listeners on respective pages, forcing a refresh
+  };
 
   // --- NOTIFICATION LOGIC ---
   useEffect(() => {
@@ -81,7 +127,6 @@ function App() {
     // 1. Real-time listener for customer submissions
     const reservationSub = onTableChange('reservations', async (payload) => {
         if (payload.eventType === 'UPDATE' && payload.old.status === 'pending-customer' && payload.new.status === 'scheduled') {
-            // Fetch full reservation details to create a meaningful notification
             const allReservations = await getReservations();
             const updatedRes = allReservations.find(r => r.id === payload.new.id);
             if (updatedRes && updatedRes.customer && updatedRes.vehicle) {
@@ -122,7 +167,7 @@ function App() {
                 setNotifications(prev => [newNotification, ...prev]);
             }
         });
-    }, 60 * 1000); // Check every minute
+    }, 60 * 1000);
 
     return () => {
         reservationSub.unsubscribe();
@@ -146,9 +191,9 @@ function App() {
   const renderPage = () => {
     switch (currentPage) {
       case Page.DASHBOARD:
-        return <Dashboard setCurrentPage={setCurrentPage} />;
+        return <Dashboard setCurrentPage={setCurrentPage} onNewReservation={handleOpenReservationModal} />;
       case Page.RESERVATIONS:
-        return <Reservations />;
+        return <Reservations onNewReservation={handleOpenReservationModal} onEditReservation={handleOpenReservationModal} />;
       case Page.VEHICLES:
         return <Vehicles />;
       case Page.CUSTOMERS:
@@ -160,12 +205,13 @@ function App() {
       case Page.REPORTS:
         return <Reports />;
       default:
-        return <Dashboard setCurrentPage={setCurrentPage} />;
+        return <Dashboard setCurrentPage={setCurrentPage} onNewReservation={handleOpenReservationModal} />;
     }
   };
 
   if (loading) return <LoadingScreen />;
   if (!session) return <Login />;
+  if (dataLoading) return <LoadingScreen />;
 
   return (
     <div className="flex h-screen bg-light-bg font-sans">
@@ -182,6 +228,14 @@ function App() {
           {renderPage()}
         </main>
       </div>
+      <ReservationFormModal
+        isOpen={isReservationModalOpen}
+        onClose={handleCloseReservationModal}
+        onSave={handleSaveReservation}
+        reservationData={reservationModalData}
+        vehicles={vehicles}
+        customers={customers}
+      />
     </div>
   );
 }

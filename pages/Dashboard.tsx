@@ -6,16 +6,21 @@ import { Car, Users, CalendarCheck, AlertTriangle, Link, Clock, ArrowRightLeft, 
 import ReservationDetailModal from '../components/ReservationDetailModal';
 import SelfServiceModal from '../components/SelfServiceModal';
 
-
 const COLORS = { available: '#22C55E', rented: '#F59E0B', maintenance: '#EF4444' };
 
-const Dashboard: React.FC<{ setCurrentPage: (page: Page) => void }> = ({ setCurrentPage }) => {
+interface DashboardProps {
+    setCurrentPage: (page: Page) => void;
+    onNewReservation: () => void;
+}
+
+const Dashboard: React.FC<DashboardProps> = ({ setCurrentPage, onNewReservation }) => {
     const [vehicles, setVehicles] = useState<Vehicle[]>([]);
     const [reservations, setReservations] = useState<Reservation[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [isSelfServiceModalOpen, setIsSelfServiceModalOpen] = useState(false);
+    const [lastUpdate, setLastUpdate] = useState(Date.now());
 
     const fetchData = async () => {
         // Keep loading state true only on initial load
@@ -30,27 +35,30 @@ const Dashboard: React.FC<{ setCurrentPage: (page: Page) => void }> = ({ setCurr
             setLoading(false);
         }
     };
-
+    
+    // This effect handles fetching data when the component mounts or lastUpdate changes
     useEffect(() => {
         fetchData();
+    }, [lastUpdate]);
 
+    useEffect(() => {
         // Set up real-time subscription
-        const subscription = onTableChange('reservations', () => {
+        const reservationsListener = onTableChange('reservations', () => {
             console.log('Reservation change detected, refetching dashboard data...');
-            fetchData();
+            setLastUpdate(Date.now()); // Trigger a refetch
         });
         
-        const vehicleSubscription = onTableChange('vehicles', () => {
+        const vehiclesListener = onTableChange('vehicles', () => {
             console.log('Vehicle change detected, refetching dashboard data...');
-            fetchData();
+            setLastUpdate(Date.now()); // Trigger a refetch
         });
 
         // Clean up subscription on component unmount
         return () => {
-            subscription.unsubscribe();
-            vehicleSubscription.unsubscribe();
+            reservationsListener.unsubscribe();
+            vehiclesListener.unsubscribe();
         };
-    }, []); // Empty dependency array ensures this runs only once on mount
+    }, []);
 
     const vehicleStatusData = [
         { name: 'K dispozici', value: vehicles.filter(v => v.status === 'available').length },
@@ -90,16 +98,12 @@ const Dashboard: React.FC<{ setCurrentPage: (page: Page) => void }> = ({ setCurr
         // Data will be refetched by the real-time listener, no need to call fetchData() here.
     };
     
-    const handleLinkGenerated = () => {
-         // Data will be refetched by the real-time listener.
-    }
-
     if (loading) return <div className="flex items-center justify-center h-full"><Loader className="w-8 h-8 animate-spin" /> Načítání přehledu...</div>;
 
     return (
         <div className="space-y-6">
             <ReservationDetailModal isOpen={isDetailModalOpen} onClose={handleCloseModal} reservation={selectedReservation} />
-            <SelfServiceModal isOpen={isSelfServiceModalOpen} onClose={() => setIsSelfServiceModalOpen(false)} availableVehicles={vehicles.filter(v => v.status === 'available')} onLinkGenerated={handleLinkGenerated} />
+            <SelfServiceModal isOpen={isSelfServiceModalOpen} onClose={() => setIsSelfServiceModalOpen(false)} availableVehicles={vehicles.filter(v => v.status === 'available')} onLinkGenerated={() => setLastUpdate(Date.now())} />
 
             {/* Header Actions */}
             <div className="flex justify-between items-center">
@@ -113,7 +117,7 @@ const Dashboard: React.FC<{ setCurrentPage: (page: Page) => void }> = ({ setCurr
                     <button onClick={() => setCurrentPage(Page.CUSTOMERS)} className="bg-gray-200 text-dark-text font-bold py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors flex items-center">
                         <Users className="w-5 h-5 mr-2" /> Nový zákazník
                     </button>
-                    <button onClick={() => setCurrentPage(Page.RESERVATIONS)} className="bg-secondary text-dark-text font-bold py-2 px-4 rounded-lg hover:bg-secondary-hover transition-colors flex items-center">
+                    <button onClick={onNewReservation} className="bg-secondary text-dark-text font-bold py-2 px-4 rounded-lg hover:bg-secondary-hover transition-colors flex items-center">
                         <CalendarCheck className="w-5 h-5 mr-2" /> Nová rezervace
                     </button>
                 </div>

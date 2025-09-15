@@ -128,12 +128,34 @@ export const getReservations = async (): Promise<Reservation[]> => {
     }));
 };
 
-export const addReservation = async (reservation: Omit<Reservation, 'id' | 'customer' | 'vehicle'>): Promise<Reservation> => {
-    const { data, error } = await getClient().from('reservations').insert([reservation]).select();
-    handleSupabaseError(error, 'addReservation');
-    if (!data) throw new Error("Reservation creation failed.");
-    return data[0];
+export const createReservationWithContract = async (reservationData: Omit<Reservation, 'id'|'customer'|'vehicle'>, contractText: string) => {
+    const client = getClient();
+    
+    // 1. Create the reservation
+    const { data: newReservation, error: reservationError } = await client
+        .from('reservations')
+        .insert(reservationData)
+        .select()
+        .single();
+    handleSupabaseError(reservationError, 'createReservationWithContract: insert reservation');
+    if (!newReservation) throw new Error('Reservation creation failed.');
+
+    // 2. Create the contract linked to the new reservation
+    const contractData = {
+        reservationId: newReservation.id,
+        customerId: newReservation.customerId,
+        vehicleId: newReservation.vehicleId,
+        contractText,
+        generatedAt: new Date(),
+    };
+    const { error: contractError } = await client
+        .from('contracts')
+        .insert(contractData);
+    handleSupabaseError(contractError, 'createReservationWithContract: insert contract');
+
+    return newReservation;
 };
+
 
 export const updateReservation = async (id: string, updates: Partial<Reservation>): Promise<Reservation> => {
     const { data, error } = await getClient().from('reservations').update(updates).eq('id', id).select();
@@ -169,7 +191,7 @@ export const activateReservation = async (id: string, startMileage: number): Pro
 
 export const completeReservation = async (id: string, endMileage: number, notes: string): Promise<void> => {
     const client = getClient();
-    // 1. Fetch reservation to get vehicle ID
+    // 1. Fetch reservation to get details
     const { data: reservation, error: fetchError } = await client
         .from('reservations')
         .select('vehicleId, customerId, startDate, endDate, startMileage')
@@ -226,21 +248,6 @@ export const completeReservation = async (id: string, endMileage: number, notes:
     };
     const { error: finError } = await client.from('financial_transactions').insert([transaction]);
     handleSupabaseError(finError, 'completeReservation: create transaction');
-    
-    // 5. Create contract (simple version)
-    const { data: customerData, error: customerError } = await client.from('customers').select('*').eq('id', reservation.customerId).single();
-    handleSupabaseError(customerError, 'completeReservation: fetch customer');
-    if (!customerData) throw new Error('Customer not found for contract');
-    
-    const contractText = `Smlouva o pronájmu vozidla...\nZákazník: ${customerData.firstName} ${customerData.lastName}\n...`;
-    const { error: contractError } = await client.from('contracts').insert([{
-        reservationId: id,
-        customerId: reservation.customerId,
-        vehicleId: reservation.vehicleId,
-        contractText,
-        generatedAt: new Date(),
-    }]);
-    handleSupabaseError(contractError, 'completeReservation: create contract');
 };
 
 // --- Customer Portal API ---
@@ -288,37 +295,15 @@ export const submitCustomerDetails = async (token: string, customerDetails: Omit
     const { data: urlData } = client.storage.from('documents').getPublicUrl(filePath);
     if (!urlData) throw new Error("Could not get public URL for the file.");
 
-    // 4. Check if customer exists, if not, create one
-    let { data: existingCustomer, error: findError } = await client
+    // 4. Always create a new customer for simplicity in the portal workflow
+    const { data: newCustomer, error: createError } = await client
         .from('customers')
+        .insert([{ ...customerDetails, driverLicenseImageUrl: urlData.publicUrl }])
         .select('id')
-        .eq('email', customerDetails.email)
         .single();
-    
-    let customerId = existingCustomer?.id;
-
-    if (findError && findError.code !== 'PGRST116') { // PGRST116: no rows found
-        handleSupabaseError(findError, 'submitCustomerDetails: find customer');
-    }
-
-    if (customerId) {
-        // Update existing customer
-        const { error: updateError } = await client
-            .from('customers')
-            .update({ ...customerDetails, driverLicenseImageUrl: urlData.publicUrl })
-            .eq('id', customerId);
-        handleSupabaseError(updateError, 'submitCustomerDetails: update customer');
-    } else {
-        // Create new customer
-        const { data: newCustomer, error: createError } = await client
-            .from('customers')
-            .insert([{ ...customerDetails, driverLicenseImageUrl: urlData.publicUrl }])
-            .select('id')
-            .single();
-        handleSupabaseError(createError, 'submitCustomerDetails: create customer');
-        if (!newCustomer) throw new Error("Failed to create customer record.");
-        customerId = newCustomer.id;
-    }
+    handleSupabaseError(createError, 'submitCustomerDetails: create customer');
+    if (!newCustomer) throw new Error("Failed to create customer record.");
+    const customerId = newCustomer.id;
     
     // 5. Update reservation with customer ID and change status
     const { error: updateResError } = await client
@@ -388,16 +373,11 @@ const subscribedChannels: Map<string, RealtimeChannel> = new Map();
 export const onTableChange = (
     table: string, 
     callback: (payload: any) => void
-): RealtimeChannel => {
+): { unsubscribe: () => void } => {
     const client = getClient();
-    const channelId = `public:${table}`;
+    const channelId = `realtime-any-${table}-${Math.random()}`;
     
-    // Unsubscribe from any existing channel for this table to avoid duplicates
-    if (subscribedChannels.has(channelId)) {
-        subscribedChannels.get(channelId)!.unsubscribe();
-    }
-
-    const channel = client.channel(`realtime-any-${table}`)
+    const channel = client.channel(channelId)
         .on(
             'postgres_changes',
             { event: '*', schema: 'public', table: table },
@@ -406,10 +386,22 @@ export const onTableChange = (
                 callback(payload);
             }
         )
-        .subscribe();
-
+        .subscribe((status, err) => {
+             if (status === 'SUBSCRIBED') {
+                console.log(`Successfully subscribed to ${table}`);
+            }
+            if (status === 'CHANNEL_ERROR') {
+                console.error(`Failed to subscribe to ${table}:`, err);
+            }
+        });
+        
     subscribedChannels.set(channelId, channel);
+
+    const unsubscribe = () => {
+        console.log(`Unsubscribing from ${channelId}`);
+        client.removeChannel(channel);
+        subscribedChannels.delete(channelId);
+    };
     
-    // The component that subscribes is responsible for unsubscribing on unmount
-    return channel;
+    return { unsubscribe };
 };
