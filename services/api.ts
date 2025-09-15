@@ -1,9 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
-import type { Customer, Vehicle, Reservation, FinancialTransaction, ReservationStatus } from '../types.ts';
+import type { Customer, Vehicle, Reservation, FinancialTransaction, ReservationStatus, Notification } from '../types.ts';
 
-// It's recommended to use environment variables for Supabase credentials.
-const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || 'https://your-project-id.supabase.co';
-const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY || 'your-supabase-anon-key';
+// --- KLÍČOVÁ OPRAVA ZDE ---
+// Načítáme proměnné z globálního objektu window.env, který je nastaven v index.html.
+// Toto je správný způsob pro toto prostředí a opravuje chybu v přihlašování.
+const supabaseUrl = (window as any).env?.VITE_SUPABASE_URL || 'https://vasedomena.supabase.co';
+const supabaseAnonKey = (window as any).env?.VITE_SUPABASE_ANON_KEY || 'vas_anon_public_klic';
+
+if (supabaseUrl.includes('vasedomena') || supabaseAnonKey.includes('vas_anon_public_klic')) {
+    console.warn("Upozornění: Používáte výchozí Supabase klíče. Prosím, nastavte si vlastní v souboru index.html.");
+}
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
@@ -39,7 +45,7 @@ export const updateVehicle = async (id: string, vehicleData: Partial<Omit<Vehicl
 
 // --- Customers ---
 export const getCustomers = async (): Promise<Customer[]> => {
-    const { data, error } = await supabase.from('customers').select('*');
+    const { data, error } = await supabase.from('customers').select('*').order('last_name', { ascending: true });
     if (error) throw error;
     return data;
 };
@@ -64,7 +70,8 @@ export const getReservations = async (): Promise<Reservation[]> => {
 };
 
 export const createPendingReservation = async (vehicle_id: string, start_date: Date, end_date: Date): Promise<Reservation> => {
-    const portal_token = `token-${Math.random().toString(36).substring(2)}-${Date.now()}`;
+    // Generate a more robust unique token
+    const portal_token = `${crypto.randomUUID()}`;
     const { data, error } = await supabase.from('reservations').insert({
         vehicle_id,
         start_date: start_date.toISOString(),
@@ -97,15 +104,26 @@ export const createReservationWithContract = async (
         contract_text: contractText,
         generated_at: new Date().toISOString(),
     });
-    if (contractError) throw contractError;
+    if (contractError) {
+        // Attempt to roll back the reservation if contract fails
+        await supabase.from('reservations').delete().eq('id', reservation.id);
+        throw contractError;
+    }
 
-    // Update vehicle status
-    await updateVehicle(vehicle.id, { status: 'rented' });
+    // Update vehicle status should happen on handover, not on creation
+    // await updateVehicle(vehicle.id, { status: 'rented' });
+    return reservation;
 };
 
 export const updateReservationStatus = async (id: string, status: ReservationStatus, extraData: Partial<Reservation> = {}) => {
     const { data, error } = await supabase.from('reservations').update({ status, ...extraData }).eq('id', id).select().single();
     if (error) throw error;
+
+    // Update vehicle status based on reservation status
+    if (status === 'active' && extraData.vehicle_id) {
+        await updateVehicle(extraData.vehicle_id, { status: 'rented' });
+    }
+    
     return data;
 };
 
@@ -120,7 +138,7 @@ export const completeReservation = async (reservation: Reservation, end_mileage:
 
     // Add income to financials
     const totalAmount = (reservation.total_price || 0) + mileageFee;
-    await supabase.from('financials').insert({
+    await supabase.from('financial_transactions').insert({
         type: 'income',
         description: `Pronájem ${reservation.vehicles?.name} - ${reservation.customers?.first_name} ${reservation.customers?.last_name}`,
         amount: totalAmount,
@@ -138,19 +156,19 @@ export const getContracts = async (): Promise<any[]> => {
 
 // --- Financials ---
 export const getFinancials = async (): Promise<FinancialTransaction[]> => {
-    const { data, error } = await supabase.from('financials').select('*').order('date', { ascending: false });
+    const { data, error } = await supabase.from('financial_transactions').select('*').order('date', { ascending: false });
     if (error) throw error;
     return data;
 };
 
 export const addExpense = async (expenseData: Omit<FinancialTransaction, 'id' | 'type' | 'reservation_id'>): Promise<FinancialTransaction> => {
-    const { data, error } = await supabase.from('financials').insert([{ ...expenseData, type: 'expense' }]).select().single();
+    const { data, error } = await supabase.from('financial_transactions').insert([{ ...expenseData, type: 'expense' }]).select().single();
     if (error) throw error;
     return data;
 };
 
 // --- Notifications ---
-export const getNotifications = async (): Promise<any[]> => {
+export const getNotifications = async (): Promise<Notification[]> => {
     const { data, error } = await supabase.from('notifications').select('*').order('created_at', { ascending: false });
     if (error) throw error;
     return data;

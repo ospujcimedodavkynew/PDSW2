@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from './services/api.ts';
 import { User, Page, Vehicle, Customer, Reservation, Notification as NotificationType } from './types.ts';
@@ -52,13 +53,17 @@ function App() {
     useEffect(() => {
         const getSession = async () => {
             const { data: { session } } = await supabase.auth.getSession();
-            setUser(session?.user ?? null);
+            // Fix: Map the Supabase user to the application's User type to resolve type mismatch.
+            const supabaseUser = session?.user;
+            setUser(supabaseUser ? { id: supabaseUser.id, email: supabaseUser.email ?? null } : null);
             setLoading(false);
         };
         getSession();
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-            setUser(session?.user ?? null);
+            // Fix: Map the Supabase user to the application's User type to resolve type mismatch.
+            const supabaseUser = session?.user;
+            setUser(supabaseUser ? { id: supabaseUser.id, email: supabaseUser.email ?? null } : null);
             setLoading(false);
         });
 
