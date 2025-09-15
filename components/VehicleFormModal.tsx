@@ -1,6 +1,5 @@
 import React, { useState, useEffect, FormEvent } from 'react';
 import { X, Loader2 } from 'lucide-react';
-// Fix: Import VehicleStatus to use for type casting.
 import { Vehicle, VehicleStatus } from '../types.ts';
 import { addVehicle, updateVehicle } from '../services/api.ts';
 
@@ -19,7 +18,6 @@ const VehicleFormModal: React.FC<VehicleFormModalProps> = ({ isOpen, onClose, on
         rate4h: 0,
         rate12h: 0,
         current_mileage: 0,
-        // Fix: Cast the initial status value to VehicleStatus to prevent the type from being inferred as the literal 'available'.
         status: 'available' as VehicleStatus,
     });
     const [isSaving, setIsSaving] = useState(false);
@@ -44,7 +42,6 @@ const VehicleFormModal: React.FC<VehicleFormModalProps> = ({ isOpen, onClose, on
                 rate4h: 0,
                 rate12h: 0,
                 current_mileage: 0,
-                // Fix: Ensure the reset state also has the correct type for status.
                 status: 'available' as VehicleStatus,
             });
         }

@@ -1,6 +1,6 @@
 
+
 import React, { useEffect, useState, useMemo, FormEvent } from 'react';
-// Fix: Added .ts extension to the import paths.
 import { getFinancials, addExpense } from '../services/api.ts';
 import { FinancialTransaction, ExpenseCategory, EXPENSE_CATEGORIES } from '../types.ts';
 import { DollarSign, TrendingUp, TrendingDown, Plus, X } from 'lucide-react';
@@ -31,7 +31,6 @@ const ExpenseFormModal: React.FC<{
             await addExpense({
                 description,
                 amount: parseFloat(amount),
-                // Fix: The 'date' property is expected to be a string, not a Date object.
                 date: date,
                 category,
             });

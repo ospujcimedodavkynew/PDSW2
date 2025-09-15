@@ -1,88 +1,122 @@
-import React, { useMemo } from 'react';
-import { Reservation, Vehicle } from '../types.ts';
-import { Car, Calendar, Clock, CheckCircle2 } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { Vehicle, Reservation, Customer } from '../types';
+import { Car, Calendar, Users, Plus, Link as LinkIcon, AlertTriangle } from 'lucide-react';
+import SelfServiceModal from '../components/SelfServiceModal';
 
-interface DashboardProps {
-    reservations: Reservation[];
+interface DashboardPageProps {
     vehicles: Vehicle[];
+    reservations: Reservation[];
+    customers: Customer[];
     dataLoading: boolean;
+    onNewReservation: (prefillData: Partial<Reservation>) => void;
     onShowReservation: (reservation: Reservation) => void;
-    onNewReservation: () => void;
-    onNewCustomer: () => void;
-    onNewVehicle: () => void;
 }
 
-const StatCard: React.FC<{ icon: React.ElementType, title: string, value: string | number, color: string }> = ({ icon: Icon, title, value, color }) => (
-    <div className="bg-white p-6 rounded-lg shadow-md flex items-center">
-        <div className={`p-4 rounded-full ${color}`}>
-            <Icon className="w-8 h-8 text-white" />
-        </div>
-        <div className="ml-4">
-            <p className="text-sm text-gray-500 font-medium">{title}</p>
-            <p className="text-3xl font-bold text-gray-800">{value}</p>
-        </div>
-    </div>
-);
-
-const Dashboard: React.FC<DashboardProps> = ({ reservations, vehicles, dataLoading, onShowReservation, onNewReservation, onNewCustomer, onNewVehicle }) => {
+const Dashboard: React.FC<DashboardPageProps> = ({ vehicles, reservations, customers, dataLoading, onNewReservation, onShowReservation }) => {
+    const [isSelfServiceModalOpen, setIsSelfServiceModalOpen] = useState(false);
+    
     const stats = useMemo(() => {
-        const now = new Date();
-        const activeRentals = reservations.filter(r => r.status === 'active').length;
         const availableVehicles = vehicles.filter(v => v.status === 'available').length;
-        const upcomingReservations = reservations.filter(r => r.status === 'scheduled' && new Date(r.start_date) > now).length;
-        return { activeRentals, availableVehicles, upcomingReservations, totalVehicles: vehicles.length };
-    }, [reservations, vehicles]);
+        const activeReservations = reservations.filter(r => r.status === 'active').length;
+        const customerCount = customers.length;
+        return { availableVehicles, activeReservations, customerCount };
+    }, [vehicles, reservations, customers]);
 
-    const upcomingEvents = useMemo(() => {
+    const upcomingReservations = useMemo(() => {
+        const now = new Date();
         return reservations
-            .filter(r => ['scheduled', 'active'].includes(r.status))
+            .filter(r => (r.status === 'scheduled' || r.status === 'active') && new Date(r.start_date) >= now)
             .sort((a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime())
             .slice(0, 5);
     }, [reservations]);
     
+    const vehiclesNeedingAttention = useMemo(() => {
+        return vehicles.filter(v => v.status === 'maintenance');
+    }, [vehicles]);
+
+
     if (dataLoading) {
         return <div>Načítání přehledu...</div>;
     }
 
     return (
         <div className="space-y-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <StatCard icon={Car} title="Aktivní pronájmy" value={stats.activeRentals} color="bg-orange-500" />
-                <StatCard icon={CheckCircle2} title="Dostupná vozidla" value={`${stats.availableVehicles} / ${stats.totalVehicles}`} color="bg-green-500" />
-                <StatCard icon={Calendar} title="Nadcházející rezervace" value={stats.upcomingReservations} color="bg-blue-500" />
-                <StatCard icon={Clock} title="Čeká na zákazníka" value={reservations.filter(r => r.status === 'pending-customer').length} color="bg-yellow-500" />
+            <SelfServiceModal 
+                isOpen={isSelfServiceModalOpen}
+                onClose={() => setIsSelfServiceModalOpen(false)}
+                availableVehicles={vehicles.filter(v => v.status === 'available')}
+                onLinkGenerated={() => { /* Could refetch data here if needed */ }}
+            />
+            {/* Quick Actions */}
+            <div className="flex space-x-4">
+                <button onClick={() => onNewReservation({})} className="flex-1 bg-primary text-white font-bold py-3 px-4 rounded-lg hover:bg-primary-hover transition-colors flex items-center justify-center">
+                    <Plus className="w-5 h-5 mr-2" /> Vytvořit rezervaci
+                </button>
+                 <button onClick={() => setIsSelfServiceModalOpen(true)} className="flex-1 bg-secondary text-white font-bold py-3 px-4 rounded-lg hover:bg-secondary-hover transition-colors flex items-center justify-center">
+                    <LinkIcon className="w-5 h-5 mr-2" /> Samoobslužný link
+                </button>
+            </div>
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-white p-6 rounded-lg shadow-md flex items-center">
+                    <div className="p-4 rounded-full bg-blue-100"><Car className="w-8 h-8 text-blue-700"/></div>
+                    <div className="ml-4">
+                        <p className="text-3xl font-bold text-gray-800">{stats.availableVehicles}</p>
+                        <p className="text-sm text-gray-500 font-medium">Vozidel k dispozici</p>
+                    </div>
+                </div>
+                 <div className="bg-white p-6 rounded-lg shadow-md flex items-center">
+                    <div className="p-4 rounded-full bg-orange-100"><Calendar className="w-8 h-8 text-orange-700"/></div>
+                    <div className="ml-4">
+                        <p className="text-3xl font-bold text-gray-800">{stats.activeReservations}</p>
+                        <p className="text-sm text-gray-500 font-medium">Aktivních rezervací</p>
+                    </div>
+                </div>
+                <div className="bg-white p-6 rounded-lg shadow-md flex items-center">
+                    <div className="p-4 rounded-full bg-green-100"><Users className="w-8 h-8 text-green-700"/></div>
+                    <div className="ml-4">
+                        <p className="text-3xl font-bold text-gray-800">{stats.customerCount}</p>
+                        <p className="text-sm text-gray-500 font-medium">Zákazníků celkem</p>
+                    </div>
+                </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow-md">
-                    <h2 className="text-xl font-bold mb-4 text-gray-700">Nadcházející události</h2>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Upcoming Reservations */}
+                <div className="bg-white p-6 rounded-lg shadow-md">
+                    <h2 className="text-xl font-bold mb-4 text-gray-700">Nadcházející rezervace</h2>
                     <div className="space-y-3">
-                        {upcomingEvents.length > 0 ? (
-                            upcomingEvents.map(r => (
-                                <div key={r.id} onClick={() => onShowReservation(r)} className="p-3 bg-gray-50 hover:bg-gray-100 rounded-lg flex justify-between items-center cursor-pointer">
-                                    <div>
-                                        <p className="font-semibold">{r.vehicles?.name}</p>
-                                        <p className="text-sm text-gray-600">{r.customers?.first_name} {r.customers?.last_name}</p>
-                                    </div>
-                                    <div className="text-right">
-                                        <p className={`font-bold text-sm ${r.status === 'active' ? 'text-orange-600' : 'text-blue-600'}`}>{new Date(r.start_date).toLocaleDateString('cs-CZ')} - {new Date(r.end_date).toLocaleDateString('cs-CZ')}</p>
-                                        <p className="text-xs text-gray-500">{new Date(r.start_date).toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit'})} &rarr; {new Date(r.end_date).toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' })}</p>
-                                    </div>
+                        {upcomingReservations.length > 0 ? upcomingReservations.map(res => (
+                            <div key={res.id} onClick={() => onShowReservation(res)} className="p-3 bg-gray-50 rounded-md flex justify-between items-center cursor-pointer hover:bg-gray-100">
+                                <div>
+                                    <p className="font-semibold">{res.customers?.first_name} {res.customers?.last_name}</p>
+                                    <p className="text-sm text-gray-600">{res.vehicles?.name}</p>
                                 </div>
-                            ))
-                        ) : (
-                            <p className="text-gray-500">Žádné nadcházející události.</p>
+                                <div className="text-right">
+                                     <p className="font-semibold text-sm">{new Date(res.start_date).toLocaleDateString('cs-CZ')}</p>
+                                     <p className="text-xs text-gray-500">{new Date(res.start_date).toLocaleTimeString('cs-CZ', {hour: '2-digit', minute:'2-digit'})}</p>
+                                </div>
+                            </div>
+                        )) : (
+                            <p className="text-gray-500 text-center py-4">Žádné nadcházející rezervace.</p>
                         )}
                     </div>
                 </div>
-
+                 {/* Attention Needed */}
                 <div className="bg-white p-6 rounded-lg shadow-md">
-                    <h2 className="text-xl font-bold mb-4 text-gray-700">Rychlé akce</h2>
-                    <div className="space-y-3">
-                        <button onClick={() => onNewReservation()} className="w-full text-left p-3 bg-primary text-white rounded-lg hover:bg-primary-hover font-semibold">Nová rezervace</button>
-                        <button onClick={onNewVehicle} className="w-full text-left p-3 bg-gray-200 rounded-lg hover:bg-gray-300 font-semibold">Přidat vozidlo</button>
-                        <button onClick={onNewCustomer} className="w-full text-left p-3 bg-gray-200 rounded-lg hover:bg-gray-300 font-semibold">Přidat zákazníka</button>
-                    </div>
+                     <h2 className="text-xl font-bold mb-4 text-gray-700 flex items-center"><AlertTriangle className="text-yellow-500 mr-2"/>Vyžaduje pozornost</h2>
+                     <div className="space-y-3">
+                         {vehiclesNeedingAttention.length > 0 ? vehiclesNeedingAttention.map(v => (
+                            <div key={v.id} className="p-3 bg-yellow-50 rounded-md flex justify-between items-center">
+                                <div>
+                                    <p className="font-semibold">{v.name}</p>
+                                    <p className="text-sm text-yellow-700">Vozidlo je ve stavu 'V servisu'</p>
+                                </div>
+                            </div>
+                         )) : (
+                             <p className="text-gray-500 text-center py-4">Žádné položky nevyžadují pozornost.</p>
+                         )}
+                     </div>
                 </div>
             </div>
         </div>

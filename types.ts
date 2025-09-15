@@ -1,4 +1,4 @@
-// Fix: Replaced API logic with actual type definitions. This file should only contain types.
+// Enums
 export enum Page {
     DASHBOARD = 'DASHBOARD',
     RESERVATIONS = 'RESERVATIONS',
@@ -9,29 +9,35 @@ export enum Page {
     REPORTS = 'REPORTS',
 }
 
-export interface Notification {
+export type VehicleStatus = 'available' | 'rented' | 'maintenance';
+export type ReservationStatus = 'pending-customer' | 'scheduled' | 'active' | 'completed' | 'cancelled';
+export type TransactionType = 'income' | 'expense';
+export type ExpenseCategory = 'servis' | 'pojisteni' | 'pohonne_hmoty' | 'marketing' | 'ostatni';
+
+export const EXPENSE_CATEGORIES: Record<ExpenseCategory, string> = {
+    servis: 'Servis a údržba',
+    pojisteni: 'Pojištění',
+    pohonne_hmoty: 'Pohonné hmoty',
+    marketing: 'Marketing',
+    ostatni: 'Ostatní',
+};
+
+// Data models
+export interface User {
     id: string;
-    message: string;
-    type: 'info' | 'warning';
-    createdAt: Date;
-    isRead: boolean;
-    page?: Page;
+    email: string | null;
 }
 
 export interface Vehicle {
     id: string;
     name: string;
-    make: string;
-    model: string;
-    year: number;
-    licensePlate: string;
-    status: 'available' | 'rented' | 'maintenance';
-    imageUrl: string;
+    license_plate: string;
+    status: VehicleStatus;
+    image_url?: string;
+    daily_rate: number;
     rate4h: number;
     rate12h: number;
-    dailyRate: number;
-    features: string[];
-    currentMileage: number;
+    current_mileage: number;
 }
 
 export interface Customer {
@@ -40,53 +46,61 @@ export interface Customer {
     last_name: string;
     email: string;
     phone: string;
-    address: string;
-    driver_license_number: string;
-    driverLicenseImageUrl?: string;
+    address?: string;
+    id_card_number?: string;
+    driver_license_number?: string;
+    driver_license_image_url?: string;
 }
 
 export interface Reservation {
     id: string;
-    customerId: string;
-    vehicleId: string;
-    startDate: Date;
-    endDate: Date;
-    status: 'scheduled' | 'active' | 'completed' | 'pending-customer';
-    customer?: Customer;
-    vehicle?: Vehicle;
-    portalToken?: string;
-    startMileage?: number;
-    endMileage?: number;
+    start_date: string; // ISO string
+    end_date: string; // ISO string
+    vehicle_id: string;
+    customer_id: string | null;
+    status: ReservationStatus;
+    total_price?: number;
+    portal_token?: string;
     notes?: string;
+    start_mileage?: number;
+    end_mileage?: number;
+
+    // For joining data
+    vehicles?: Pick<Vehicle, 'name' | 'license_plate'>;
+    customers?: Pick<Customer, 'first_name' | 'last_name'>;
 }
 
 export interface Contract {
     id: string;
-    reservationId: string;
-    customerId: string;
-    vehicleId: string;
-    contractText: string;
-    generatedAt: Date;
-    customer?: Customer;
-    vehicle?: Vehicle;
+    reservation_id: string;
+    customer_id: string;
+    vehicle_id: string;
+    generated_at: string; // ISO string
+    contract_text: string;
+    
+    // Joined data
+    customers?: Pick<Customer, 'first_name' | 'last_name'>;
+    vehicles?: Pick<Vehicle, 'name' | 'license_plate'>;
 }
-
-export type ExpenseCategory = 'palivo' | 'udrzba' | 'pojisteni' | 'marketing' | 'ostatni';
-
-export const EXPENSE_CATEGORIES: { [key in ExpenseCategory]: string } = {
-    palivo: 'Palivo',
-    udrzba: 'Údržba a servis',
-    pojisteni: 'Pojištění',
-    marketing: 'Marketing',
-    ostatni: 'Ostatní',
-};
 
 export interface FinancialTransaction {
     id: string;
-    reservationId?: string;
+    type: TransactionType;
     description: string;
     amount: number;
-    date: Date;
-    type: 'income' | 'expense';
+    date: string; // ISO string
     category?: ExpenseCategory;
+    reservation_id?: string;
+}
+
+export interface Notification {
+    id: string;
+    message: string;
+    type: 'info' | 'warning';
+    is_read: boolean;
+    created_at: string; // ISO string
+    related_entity?: {
+        type: 'reservation' | 'vehicle';
+        id: string;
+    };
 }

@@ -1,5 +1,4 @@
 import React from 'react';
-// Fix: Added .tsx and .ts extensions to the import paths.
 import NotificationCenter from './NotificationCenter.tsx';
 import type { Notification } from '../types.ts';
 

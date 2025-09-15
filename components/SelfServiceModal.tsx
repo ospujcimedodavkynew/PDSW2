@@ -1,7 +1,7 @@
 
+
 import React, { useState } from 'react';
 import { X, Mail, Send, Calendar } from 'lucide-react';
-// Fix: Added .ts extension to the import paths.
 import { Vehicle } from '../types.ts';
 import { createPendingReservation } from '../services/api.ts';
 
@@ -50,7 +50,6 @@ const SelfServiceModal: React.FC<SelfServiceModalProps> = ({ isOpen, onClose, av
         try {
             const reservation = await createPendingReservation(selectedVehicleId, new Date(startDate), new Date(endDate));
             const selectedVehicle = availableVehicles.find(v => v.id === selectedVehicleId);
-            // Fix: The Reservation type uses 'portal_token', not 'portalToken'.
             const link = `${window.location.origin}${window.location.pathname}?portal=${reservation.portal_token}`;
             
             const subject = encodeURIComponent(`Dokončení rezervace vozidla: ${selectedVehicle?.name}`);

@@ -2,7 +2,6 @@
 
 import React, { useState, useMemo } from 'react';
 import { Bell, Check, Info, AlertTriangle } from 'lucide-react';
-// Fix: Added .ts extension to the import path.
 import type { Notification } from '../types.ts';
 
 interface NotificationCenterProps {
@@ -15,7 +14,6 @@ interface NotificationCenterProps {
 const NotificationCenter: React.FC<NotificationCenterProps> = ({ notifications, onMarkAsRead, onMarkAllAsRead, onNotificationClick }) => {
     const [isOpen, setIsOpen] = useState(false);
 
-    // Fix: Property 'isRead' does not exist on type 'Notification'. Did you mean 'is_read'?
     const unreadCount = useMemo(() => notifications.filter(n => !n.is_read).length, [notifications]);
 
     const timeSince = (date: Date) => {
@@ -34,7 +32,6 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ notifications, 
     };
 
     const handleItemClick = (notification: Notification) => {
-        // Fix: Property 'isRead' does not exist on type 'Notification'. Did you mean 'is_read'?
         if (!notification.is_read) {
             onMarkAsRead(notification.id);
         }
@@ -71,7 +68,6 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ notifications, 
                                 <div
                                     key={n.id}
                                     onClick={() => handleItemClick(n)}
-                                    // Fix: Property 'isRead' does not exist on type 'Notification'. Did you mean 'is_read'?
                                     className={`p-3 border-b hover:bg-gray-50 cursor-pointer flex items-start ${!n.is_read ? 'bg-blue-50' : ''}`}
                                 >
                                     <div className="mr-3 mt-1">
@@ -79,7 +75,6 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({ notifications, 
                                     </div>
                                     <div className="flex-1">
                                         <p className="text-sm text-gray-800">{n.message}</p>
-                                        {/* Fix: Property 'createdAt' does not exist on type 'Notification'. Did you mean 'created_at'? Also, convert string to Date. */}
                                         <p className="text-xs text-gray-500 mt-1">{timeSince(new Date(n.created_at))}</p>
                                     </div>
                                 </div>
