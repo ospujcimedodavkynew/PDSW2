@@ -1,9 +1,9 @@
 
+
 import React, { useState, useEffect, FormEvent, useMemo } from 'react';
 import { X, Loader2 } from 'lucide-react';
 import { Customer, Vehicle, Reservation } from '../types';
 import { createReservationWithContract } from '../services/api';
-import { GoogleGenAI } from '@google/genai';
 
 interface ReservationFormModalProps {
     isOpen: boolean;
@@ -79,6 +79,10 @@ const ReservationFormModal: React.FC<ReservationFormModalProps> = ({ isOpen, onC
         try {
             // AI Contract Generation
             setStatusMessage('Generuji text smlouvy...');
+            
+            // Dynamically import the module to avoid build-time resolution issues.
+            const { GoogleGenAI } = await import('@google/genai');
+
             // Correct: Initialize GoogleGenAI with the apiKey in an object.
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
             const customer = customers.find(c => c.id === customerId)!;

@@ -25,7 +25,8 @@ export const EXPENSE_CATEGORIES: Record<ExpenseCategory, string> = {
 // Data models
 export interface User {
     id: string;
-    email: string | null;
+    // Fix: The Supabase user object has an optional email property. Making email optional here ensures type compatibility.
+    email?: string | null;
 }
 
 export interface Vehicle {
