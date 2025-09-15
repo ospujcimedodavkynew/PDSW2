@@ -43,7 +43,7 @@ export interface Customer {
     lastName: string;
     email: string;
     phone: string;
-    driverLicenseNumber: string;
+    driver_license_number: string;
     address: string;
     driverLicenseImageUrl?: string;
 }

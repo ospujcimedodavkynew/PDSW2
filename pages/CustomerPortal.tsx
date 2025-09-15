@@ -10,7 +10,7 @@ interface CustomerPortalProps {
 const CustomerPortal: React.FC<CustomerPortalProps> = ({ token }) => {
     const [reservation, setReservation] = useState<Reservation | null>(null);
     const [formData, setFormData] = useState<Omit<Customer, 'id' | 'driverLicenseImageUrl'>>({
-        firstName: '', lastName: '', email: '', phone: '', driverLicenseNumber: '', address: ''
+        firstName: '', lastName: '', email: '', phone: '', driver_license_number: '', address: ''
     });
     const [driverLicenseFile, setDriverLicenseFile] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -113,7 +113,7 @@ const CustomerPortal: React.FC<CustomerPortalProps> = ({ token }) => {
                      <input type="text" placeholder="Adresa (Ulice, ČP, Město, PSČ)" value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} className="w-full p-3 border rounded-md" required />
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <input type="tel" placeholder="Telefon" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} className="w-full p-3 border rounded-md" required />
-                        <input type="text" placeholder="Číslo řidičského průkazu" value={formData.driverLicenseNumber} onChange={e => setFormData({ ...formData, driverLicenseNumber: e.target.value })} className="w-full p-3 border rounded-md" required />
+                        <input type="text" placeholder="Číslo řidičského průkazu" value={formData.driver_license_number} onChange={e => setFormData({ ...formData, driver_license_number: e.target.value })} className="w-full p-3 border rounded-md" required />
                     </div>
                     
                     <div>

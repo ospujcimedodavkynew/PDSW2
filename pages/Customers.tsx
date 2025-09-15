@@ -20,7 +20,7 @@ const CustomerCard: React.FC<{ customer: Customer; onEdit: (customer: Customer) 
                     <p className="flex items-center text-gray-600 truncate"><Mail className="w-4 h-4 mr-2 flex-shrink-0" />{customer.email}</p>
                     <p className="flex items-center text-gray-600"><Phone className="w-4 h-4 mr-2 flex-shrink-0" />{customer.phone}</p>
                     <p className="flex items-start text-gray-600"><MapPin className="w-4 h-4 mr-2 flex-shrink-0 mt-0.5" />{customer.address}</p>
-                    <p className="text-gray-600"><strong>ŘP:</strong> {customer.driverLicenseNumber}</p>
+                    <p className="text-gray-600"><strong>ŘP:</strong> {customer.driver_license_number}</p>
                 </div>
             </div>
             <button onClick={() => onEdit(customer)} className="w-full mt-4 bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300 transition-colors flex items-center justify-center">

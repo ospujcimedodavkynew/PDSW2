@@ -32,7 +32,7 @@ Jméno: ${customer.firstName} ${customer.lastName}
 Adresa: ${customer.address}
 Email: ${customer.email}
 Telefon: ${customer.phone}
-Číslo ŘP: ${customer.driverLicenseNumber}
+Číslo ŘP: ${customer.driver_license_number}
 
 PŘEDMĚT NÁJMU:
 Vozidlo: ${vehicle.name}

@@ -12,7 +12,7 @@ interface CustomerFormModalProps {
 
 const CustomerFormModal: React.FC<CustomerFormModalProps> = ({ isOpen, onClose, onSaveSuccess, customer }) => {
     const getInitialData = (c: Partial<Customer> | null): Partial<Customer> => c || {
-        firstName: '', lastName: '', email: '', phone: '', driverLicenseNumber: '', address: ''
+        firstName: '', lastName: '', email: '', phone: '', driver_license_number: '', address: ''
     };
 
     const [formData, setFormData] = useState<Partial<Customer>>(getInitialData(customer));
@@ -63,7 +63,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = ({ isOpen, onClose, 
                     <input type="text" placeholder="Adresa" value={formData.address || ''} onChange={e => setFormData({ ...formData, address: e.target.value })} className="w-full p-2 border rounded" required />
                     <div className="grid grid-cols-2 gap-4">
                         <input type="tel" placeholder="Telefon" value={formData.phone || ''} onChange={e => setFormData({ ...formData, phone: e.target.value })} className="w-full p-2 border rounded" required />
-                        <input type="text" placeholder="Číslo ŘP" value={formData.driverLicenseNumber || ''} onChange={e => setFormData({ ...formData, driverLicenseNumber: e.target.value })} className="w-full p-2 border rounded" required />
+                        <input type="text" placeholder="Číslo ŘP" value={formData.driver_license_number || ''} onChange={e => setFormData({ ...formData, driver_license_number: e.target.value })} className="w-full p-2 border rounded" required />
                     </div>
 
                     {error && (
